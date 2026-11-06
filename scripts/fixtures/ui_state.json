@@ -1,0 +1,131 @@
+{
+  "version": "0.1.0-test.3",
+  "home_name": "HOME",
+  "away_name": "AWAY",
+  "home_score": 0,
+  "away_score": 0,
+  "home_fouls": 0,
+  "away_fouls": 0,
+  "period": 1,
+  "main": {
+    "display": "20:00",
+    "state": "ready",
+    "direction": "down",
+    "duration_seconds": 1200,
+    "remaining_seconds": 1200
+  },
+  "shot": {
+    "display": "24",
+    "state": "ready",
+    "direction": "down",
+    "duration_seconds": 24,
+    "remaining_seconds": 24
+  },
+  "layout": {
+    "elements": {
+      "away_fouls": {
+        "x": 1390,
+        "y": 175,
+        "font": "sans",
+        "size": 32,
+        "color": "#ffcd67",
+        "bold": true,
+        "align": "left",
+        "visible": true
+      },
+      "away_name": {
+        "x": 1625,
+        "y": 74,
+        "font": "sans",
+        "size": 50,
+        "color": "#ffffff",
+        "bold": true,
+        "align": "left",
+        "visible": true
+      },
+      "away_score": {
+        "x": 1400,
+        "y": 49,
+        "font": "sans",
+        "size": 90,
+        "color": "#ffffff",
+        "bold": true,
+        "align": "left",
+        "visible": true
+      },
+      "home_fouls": {
+        "x": 1135,
+        "y": 175,
+        "font": "sans",
+        "size": 32,
+        "color": "#ffcd67",
+        "bold": true,
+        "align": "left",
+        "visible": true
+      },
+      "home_name": {
+        "x": 920,
+        "y": 74,
+        "font": "sans",
+        "size": 50,
+        "color": "#ffffff",
+        "bold": true,
+        "align": "left",
+        "visible": true
+      },
+      "home_score": {
+        "x": 1175,
+        "y": 49,
+        "font": "sans",
+        "size": 90,
+        "color": "#ffffff",
+        "bold": true,
+        "align": "left",
+        "visible": true
+      },
+      "main_clock": {
+        "x": 305,
+        "y": 52,
+        "font": "sans",
+        "size": 70,
+        "color": "#ffffff",
+        "bold": true,
+        "align": "left",
+        "visible": true
+      },
+      "period": {
+        "x": 95,
+        "y": 62,
+        "font": "sans",
+        "size": 54,
+        "color": "#ffffff",
+        "bold": true,
+        "align": "left",
+        "visible": true
+      },
+      "shot_clock": {
+        "x": 670,
+        "y": 62,
+        "font": "sans",
+        "size": 54,
+        "color": "#ffba59",
+        "bold": true,
+        "align": "left",
+        "visible": true
+      }
+    },
+    "background": "",
+    "foul_style_home": "dots",
+    "foul_style_away": "dots",
+    "foul_dots_max": 5,
+    "main_clock_format": "MM:SS",
+    "shot_clock_format": "SS"
+  },
+  "listen": "127.0.0.1:8790",
+  "period_label": "1",
+  "period_overtime": false,
+  "shot_auto_hide": false,
+  "shot_visible": true,
+  "active_listen": "127.0.0.1:8790",
+  "restart_required": false
+}

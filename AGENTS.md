@@ -1,0 +1,31 @@
+# Project instructions
+
+Read this file and [handoff.md](handoff.md) before changing code. Inspect the working tree and preserve user edits. Field Scoreboard is a standalone MIT project; do not modify Field Timer or share its configuration/port. Keep this filename uppercase; never add a conflicting `agents.md`.
+
+## Scope and source map
+
+Go 1.23+, standard-library runtime, embedded HTML/CSS/JavaScript, CGO-free Windows x64 GUI/console and Linux x64 CLI. Default address: `127.0.0.1:8790`. See [architecture](docs/ARCHITECTURE.md) for ownership/API boundaries and [CONTRIBUTING.md](CONTRIBUTING.md) for portable commands and dependencies. No paid dependencies, accounts or external services are required to run the application.
+
+## Behavior to preserve
+
+- **Touch at every width and pointer type:** all selectors use the large choice dialog; hidden native selects add no keyboard stops. Keep keyboard navigation, focus restoration, scrolling without accidental selection and dynamic option synchronization. Small-screen Menu preserves drafts and shows the current page.
+- **Consistent numeric controls:** shared labelled groups, approximately 64 px buttons/fields, 28 px numbers and visible gaps; stack instead of shrinking. Scores/fouls/period apply immediately and allow exact entry. Duration edits wait for Set. Preserve zero minutes, second carry/borrow, validation and polling-safe unfinished drafts. **No sliders.**
+- **Clocks:** Go owns two independent monotonic clocks. Combined Start/Pause keeps times. Shot Reset/Set/presets resume only if the main clock is running, never changing the main clock. Restart returns both clocks to Ready, retaining configuration and game values. Add regression coverage whenever timing logic changes.
+- **Game state:** scores 0–999, fouls 0–30, periods 1–20. OT preserves the numeric period; reset game clears OT. Optional shot auto-hide is visual only (shot >= remaining match time or match expired); count-up remaining time uses duration minus elapsed. Never change clock state to hide output.
+- **Layouts:** logical 1920×1080 coordinates; browser resizing changes presentation only. Drag deltas account for preview scale. Fine-position arrows use 5/10/20 px, default 5; X/Y ± remains 1 px. Anchor bounds remain X 0–1920 and Y 0–1080. Canvas keyboard arrows remain 1 px / Shift+10 px. Layout/profile changes must not overwrite live scores or clocks.
+- **Backgrounds:** new imports default to centered Fit with aspect lock. Store original bytes and logical transforms; retain legacy stretch when transform metadata is absent until the background is explicitly edited. Explicit **Edit background — move & resize** / **Finish editing background** selection prevents moving fields. Shared rendering keeps image proportions, clipping and transparency identical in editor/preview/OBS, with handles only in the editor. Imports/removals and numeric edits obey Save/Discard and polling protection.
+- **Persistence:** keep config schema compatibility and optional-field defaults. Presets hold layout/graphic references only. Validate PNG/JPG/WebP (15 MB and 8192 px/side limits), hash-derived filenames and safe profile names; reject arbitrary paths/SVG. Never package personal graphics or local configuration.
+- **Authentication:** default loopback; remote control/full state requires bearer auth. Token retrieval/rotation, interface discovery and full-state SSE are host-only. Rotation requires JSON and immediately revokes the old token. Read-only remote OBS is allowed only with the active LAN listener and permitted private IPv4 clients, using sanitized state/events without secrets or network settings. Static assets are not a confidentiality boundary. Never put tokens in URLs, logs, public pages or packages.
+- **Network UX:** changing listen mode/port requires restart. Display a real selected private adapter IP, not wildcard `0.0.0.0`; do not install firewall rules. Keep local/LAN OBS URLs in the one OBS panel and local token copy/rotation there. Companion uses the separate HTTP Builder, with no dedicated plugin or live feedback promises.
+- OCR, NDI, direct OBS control and automatic sport rules are future work. Keep changes scoped; do not mix speculative features into a release.
+
+## Required checks and delivery
+
+1. Reproduce the issue and use targeted tests where behavior changes. Never claim hardware tests passed from browser emulation.
+2. Run `go test ./...`, `go vet ./...`, and `go test -race ./...` on Linux with a C compiler; run `node --check` for every embedded JavaScript file.
+3. Run `python scripts/test_ui_offline.py` for UI changes. Check 375/500/1000/1440/1920 px, touch/mouse/keyboard, 200%/400% zoom, drafts, focus, dynamic options, duplicate IDs and overflow. Inspect narrow/desktop screenshots including 1920×1080.
+4. After image/editor changes, run `python scripts/test_background_ui.py <native-binary>` (Playwright/Pillow). Preserve Save/Discard, legacy layouts, aspect lock, profiles and shared rendering.
+5. Build Windows GUI/console and Linux x64 with `scripts/build.ps1` or `bash scripts/build.sh`. Test extracted native packages using `python scripts/test_http.py <native-binary>` on each OS. Linux has no tray.
+6. Update user/developer documentation, handoff, release notes and verification evidence. For documentation-only repackaging, valid evidence for unchanged source/executable bytes may be reused; explicitly distinguish reused checks from new checks. Preserve tested executables rather than rebuilding unnecessarily.
+7. Package using `python scripts/package.py`; run `python scripts/verify_packages.py` and `python scripts/check_docs.py`. Scan the exact source publication and expanded archives for secrets, local data and personal paths. Verify ZIP integrity and SHA-256. No generated binaries, caches or temporary environments in Git.
+8. Publish only when authorized by the owner; preview tags remain prereleases unless explicitly approved as stable. Preserve existing remote history. Verify public access and downloaded asset hashes after publication. Record physical touchscreen, Windows tray, LAN/Companion and live-event checks separately from automation and user-reported smoke tests.
