@@ -1,58 +1,77 @@
 'use strict';
-window.FieldOCRControls={create({api,apply,message}){
- const $=id=>document.getElementById(id);
- let addressDirty=false,busy=false,current=null,signature='';
+window.FieldOCRControls={create({api,begin,finish,apply,message}){
+ const $=id=>document.getElementById(id),targets=['main','shot','home_score','away_score'];
+ const el=(target,suffix)=>$('ocr-'+target+'-'+suffix);
+ let addressDirty=false,connecting=false,current=null;
+ const busy=new Set(),signatures={};
  $('ocrAddress').addEventListener('input',()=>{addressDirty=true;if(current)sync(current)});
- async function command(path,body,resetAddress=false){
-  // Manual takeover remains available even while a connection request is pending.
-  if(busy&&path!=='manual')return;
-  busy=true;
-  try{const state=await api('/api/ocr/'+path,'POST',body);if(resetAddress)addressDirty=false;apply(state)}
+ async function command(path,body){
+  const key=body.target||'connection';
+  if(busy.has(key)&&path!=='manual')return;
+  const epoch=begin();busy.add(key);if(path==='connect')connecting=true;if(current)sync(current);
+  try{const state=await api('/api/ocr/'+path,'POST',body);if(path==='connect')addressDirty=false;apply(state,epoch)}
   catch(err){message(err.message)}
-  finally{busy=false;if(current)sync(current)}
+  finally{finish();busy.delete(key);if(path==='connect')connecting=false;if(current)sync(current)}
  }
- $('ocrConnect').addEventListener('click',()=>command('connect',{address:$('ocrAddress').value.trim()},true));
- $('ocrField').addEventListener('change',()=>command('field',{field:$('ocrField').value}));
- $('ocrFollow').addEventListener('click',()=>command('follow',{}));
- $('ocrManual').addEventListener('click',()=>command('manual',{}));
+ $('ocrConnect').addEventListener('click',()=>command('connect',{address:$('ocrAddress').value.trim()}));
+ for(const target of targets){
+  el(target,'field').addEventListener('change',()=>command('field',{target,field:el(target,'field').value}));
+  el(target,'follow').addEventListener('click',()=>command('follow',{target}));
+  el(target,'manual').addEventListener('click',()=>command('manual',{target}));
+ }
  function sync(state){
   current=state;
-  const o=state.ocr||{address:'http://127.0.0.1:18099',fields:[],connection:'disconnected',reading:'not_checked'};
+  const o=state.ocr||{address:'http://127.0.0.1:18099',fields:[],connection:'disconnected'},views=o.targets||{};
+  const follows=target=>!!views[target]?.following,anyFollowing=targets.some(follows);
   if(!addressDirty&&document.activeElement!==$('ocrAddress'))$('ocrAddress').value=o.address;
-  const fields=o.fields||[],next=JSON.stringify([fields,o.field]);
-  if(signature!==next){
-   signature=next;
-   const options=fields.map(name=>new Option(name,name));
-   if(!fields.includes(o.field))options.unshift(new Option(o.field?o.field+' (missing)':'Connect to discover fields',o.field||''));
-   $('ocrField').replaceChildren(...options);$('ocrField').value=o.field||'';
-  }
-  const following=!!o.following;
-  $('ocrMode').textContent=following?'FOLLOWING OCR':'MANUAL';
-  $('ocrMode').classList.toggle('ocr-following',following);
-  $('ocrFollow').setAttribute('aria-pressed',String(following));
-  $('ocrFollow').disabled=busy||addressDirty||following||!o.can_follow;
-  $('ocrManual').disabled=!following;
-  $('ocrConnect').disabled=busy||following;
-  $('ocrField').disabled=busy||following||!fields.length;
-  $('ocrAddress').disabled=following;
+  $('ocrConnect').disabled=connecting||anyFollowing;
+  $('ocrAddress').disabled=anyFollowing;
   const connection={disconnected:'Not connected',connecting:'Connecting…',connected:'Connected to ScoreSight',error:'Connection lost / unavailable'};
-  const reading={not_checked:'Not checked',waiting:'Waiting for a reading',accepted:'Valid MM:SS reading',missing:'Selected field missing',rejected:'Reading rejected or empty',malformed:'Invalid MM:SS reading',unavailable:'No reading available'};
   $('ocrConnection').textContent=connection[o.connection]||'Connection unavailable';
   $('ocrConnection').classList.toggle('ocr-online',o.connection==='connected');
-  $('ocrReadingStatus').textContent=(reading[o.reading]||'Waiting')+(o.detection_state?' · '+o.detection_state:'');
-  $('ocrRecognized').textContent=o.recognized||'—';
-  $('ocrAccepted').textContent=o.last_accepted||'—';
-  $('ocrWarning').textContent=o.warning||'Connect to inspect readings. Only Follow OCR clock changes the match time.';
-  $('ocrWarning').classList.toggle('ocr-attention',!!o.warning);
-  $('ocrAge').textContent=o.value_change_age_ms>=0?'Value last changed '+Math.floor(o.value_change_age_ms/1000)+'s ago. This is not a video heartbeat.':'Video freshness cannot be verified from this ScoreSight endpoint.';
-  $('ocrManualHelp').textContent=following?'Take manual control before using match or combined controls. Shot controls remain independent; shot resets stay Ready because OCR does not report running state.':'Manual takeover keeps the displayed match time paused. Press Start / Resume when ready. Following again is always explicit.';
-  document.querySelectorAll('[data-clock-action^="main:"],[data-clock-action^="both:"],[data-clock-set="main"],[data-clock-adjust^="main:"]').forEach(button=>{
-   if(following)button.disabled=true;
-   else if(button.dataset.clockAction?.startsWith('main:')){
-    const action=button.dataset.clockAction.split(':')[1];
-    button.disabled=action==='start'?state.main.state==='running':action==='pause'?state.main.state!=='running':false;
-   }else button.disabled=false;
-  });
+  $('ocrWarning').textContent=o.connection_warning||'';
+  $('ocrWarning').classList.toggle('ocr-attention',!!o.connection_warning);
+  const reading={unconfigured:'Unconfigured — manual',not_checked:'Not checked',waiting:'Waiting for a reading',accepted:'Accepted reading',missing:'Selected field missing',rejected:'Reading rejected or empty',malformed:'Invalid reading',unavailable:'No reading available',save_error:'Could not save'};
+  for(const target of targets){
+   const t=views[target]||{},field=t.field||'',fields=o.fields||[],following=follows(target);
+   const next=JSON.stringify([fields,field]);
+   if(signatures[target]!==next){
+    signatures[target]=next;
+    const options=[new Option('Unconfigured — manual',''),...fields.map(name=>new Option(name,name))];
+    if(field&&!fields.includes(field))options.push(new Option(field+' (missing)',field));
+    el(target,'field').replaceChildren(...options);el(target,'field').value=field;
+   }
+   el(target,'field').disabled=connecting||busy.has(target)||following;
+   el(target,'mode').textContent=following?'FOLLOWING OCR':'MANUAL';
+   el(target,'mode').classList.toggle('ocr-following',following);
+   el(target,'follow').setAttribute('aria-pressed',String(following));
+   el(target,'follow').disabled=connecting||busy.has(target)||addressDirty||following||!t.can_follow;
+   el(target,'manual').disabled=!following;
+   el(target,'recognized').textContent=t.recognized||'—';
+   el(target,'accepted').textContent=t.last_accepted||'—';
+   el(target,'reading').textContent=(reading[t.reading]||reading.unconfigured)+(t.detection_state?' · '+t.detection_state:'');
+   el(target,'warning').textContent=t.warning||'';
+   el(target,'warning').classList.toggle('ocr-attention',!!t.warning);
+  }
+  for(const target of ['main','shot']){
+   const following=follows(target);
+   document.querySelectorAll(`[data-clock-action^="${target}:"],[data-clock-set="${target}"],[data-clock-adjust^="${target}:"]${target==='shot'?', [data-shot-preset]':''}`).forEach(button=>{
+    if(following)button.disabled=true;
+    else if(button.dataset.clockAction){
+     const action=button.dataset.clockAction.split(':')[1];
+     button.disabled=action==='start'?state[target].state==='running':action==='pause'?state[target].state!=='running':false;
+    }else button.disabled=false;
+   });
+  }
+  const clockOwned=follows('main')||follows('shot');
+  document.querySelectorAll('[data-clock-action^="both:"]').forEach(b=>b.disabled=clockOwned);
+  $('bothOCRHelp').hidden=!clockOwned;
+  for(const target of ['home_score','away_score']){
+   document.querySelectorAll(`[data-adjust^="${target}:"],[data-exact="${target}"]`).forEach(b=>b.disabled=follows(target));
+   $(target==='home_score'?'homeScoreOwner':'awayScoreOwner').hidden=!follows(target);
+  }
+  // Server guards also reject stale dialogs and external API/Companion requests.
+  const reset=$('resetMatch');if(reset)reset.disabled=follows('home_score')||follows('away_score');
   window.refreshTouchOptions?.();
  }
  return {sync};

@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const Version = "0.1.0-test.9"
+const Version = "0.1.0-test.10"
 const CanvasW = 1920
 const CanvasH = 1080
 
@@ -223,6 +223,11 @@ func ValidateConfig(c Config) error {
 	if c.OCR != nil {
 		if _, err := normalizeScoreSight(c.OCR.Address); err != nil {
 			return err
+		}
+		for target, field := range c.OCR.Mappings {
+			if _, ok := ocrSuggestions[target]; !ok || !validOCRField(field) {
+				return errors.New("invalid OCR mapping")
+			}
 		}
 		if !validOCRField(c.OCR.Field) {
 			return errors.New("invalid OCR field name")

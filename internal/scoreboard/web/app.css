@@ -259,4 +259,14 @@ button.touch-select-trigger{display:flex;width:100%;justify-content:space-betwee
 .ocr-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px}
 .ocr-actions button{min-height:72px;font-size:20px;white-space:normal}
 #ocrConnection,#ocrReadingStatus,#ocrWarning{font-size:18px}.ocr-online{color:#92f2bd}.ocr-attention{padding:14px;border:2px solid #d8ab50;border-radius:10px;background:#302614;color:#ffe1a0}
-#ocrMode.ocr-following{color:#b5ffdb;background:#155b4b;border:2px solid #74e7d6}#ocrFollow[aria-pressed="true"]{border:2px solid #95ffe8}
+.ocr-following{color:#b5ffdb;background:#155b4b;border:2px solid #74e7d6}.ocr-actions [aria-pressed="true"]{border:2px solid #95ffe8}
+.ocr-targets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:24px;margin-top:24px}
+.ocr-target{padding:20px;border:1px solid #607894;border-radius:12px;min-width:0;background:#101d2d}
+.ocr-target h4{font-size:22px;margin:0}.ocr-source{display:grid;gap:10px;font-size:18px;min-width:0}
+.ocr-target .ocr-readings{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.ocr-target .ocr-readings>div{padding:12px}
+.ocr-reading,.ocr-field-warning{font-size:18px}.ocr-field-warning:empty,#ocrWarning:empty{display:none}.ocr-owner{font-size:14px;color:#b5ffdb}
+@media(max-width:1100px){.ocr-targets{grid-template-columns:1fr}}
+@media(max-width:500px){.ocr-target{padding:14px}.ocr-target .ocr-readings{grid-template-columns:1fr}}
+
+/* Owned scores remain readable while their manual entry buttons are disabled. */
+.numeric-value:disabled{opacity:1;color:#e8f4ff;cursor:default}

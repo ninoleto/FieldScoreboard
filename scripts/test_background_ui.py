@@ -208,7 +208,7 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
                 assert row.bounding_box()['height']>=56
                 assert row.evaluate('e=>parseFloat(getComputedStyle(e).fontSize)')>=18
             assert page.locator('#backgroundSizing').evaluate('e=>e.tabIndex===-1 && getComputedStyle(e).display==="none"')
-            assert page.locator('select').count()==13  # Includes the ScoreSight field dialog.
+            assert page.locator('select').count()==16  # Includes the ScoreSight field dialog.
             assert page.evaluate('()=>{const ids=[...document.querySelectorAll("[id]")].map(e=>e.id);return new Set(ids).size===ids.length}')
             page.keyboard.press('Escape');assert page.locator('#backgroundSizingChoice').evaluate('e=>e===document.activeElement')
             page.screenshot(path=str(root/f'.test/background-editor-{width}px.png'),full_page=True)

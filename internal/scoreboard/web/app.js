@@ -8,7 +8,7 @@
  let s=null,layout=null,dirty=false,selected='main_clock',dragging=null,tab='control',pollBusy=false,opBusy=false,messageTimer;
  let backgroundEditor=null,layoutRevision=0,layoutSaveBusy=false;
  const editorSelection=()=>backgroundEditor?.selected?'background':selected;
- let mainDraftDirty=false,shotDraftDirty=false,networkDirty=false,builderHostDirty=false;
+ let mainDraftDirty=false,shotDraftDirty=false,networkDirty=false,builderHostDirty=false,stateEpoch=0,ocrPending=0;
  let detectedInterfaces=[],selectedIP='',builderToken=token;
  const fullLayout=()=>JSON.parse(JSON.stringify(layout));
  function message(v,good=false){let b=$('banner');b.textContent=v;b.classList.remove('hidden');b.classList.toggle('success',good);clearTimeout(messageTimer);if(good)messageTimer=setTimeout(()=>b.classList.add('hidden'),4000)}
@@ -19,9 +19,9 @@
   if(!res.ok)throw Error(j.error||`HTTP ${res.status}`);
   $('authGate').classList.add('hidden');return j;
  }
- async function action(path,body){if(opBusy)return;opBusy=true;try{const response=await api(path,'POST',body);s=response;draw();return true}catch(err){message(err.message);return false}finally{opBusy=false}}
- async function poll(){if(pollBusy||opBusy||layoutSaveBusy)return;pollBusy=true;try{s=await api('/api/state');$('connected').classList.add('ok');$('connected').classList.remove('bad');$('connectionLabel').textContent='Connected';draw()}catch(err){$('connected').classList.add('bad');$('connected').classList.remove('ok');$('connectionLabel').textContent='Offline';if(!String(err).includes('token'))message(err.message)}finally{pollBusy=false}}
- const ocrControls=window.FieldOCRControls.create({api,apply:state=>{s=state;draw()},message});
+ async function action(path,body){if(opBusy)return;opBusy=true;const epoch=++stateEpoch;try{const response=await api(path,'POST',body);if(epoch===stateEpoch){s=response;draw()}return true}catch(err){message(err.message);return false}finally{opBusy=false}}
+ async function poll(){if(pollBusy||opBusy||layoutSaveBusy||ocrPending)return;pollBusy=true;const epoch=stateEpoch;try{const response=await api('/api/state');if(epoch!==stateEpoch)return;s=response;$('connected').classList.add('ok');$('connected').classList.remove('bad');$('connectionLabel').textContent='Connected';draw()}catch(err){if(epoch!==stateEpoch)return;$('connected').classList.add('bad');$('connected').classList.remove('ok');$('connectionLabel').textContent='Offline';if(!String(err).includes('token'))message(err.message)}finally{pollBusy=false}}
+ const ocrControls=window.FieldOCRControls.create({api,begin:()=>{ocrPending++;return ++stateEpoch},finish:()=>{ocrPending--},apply:(state,epoch)=>{if(epoch===stateEpoch){s=state;draw()}},message});
  function draw(){
   if(!s)return;
   stage.paint($('previewStage'),s,s.layout,null);stage.scale($('previewStage'));

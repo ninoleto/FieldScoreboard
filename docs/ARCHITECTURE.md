@@ -10,7 +10,7 @@ Field Scoreboard is one Go process with embedded browser assets. It owns the liv
 | `cmd/fieldscoreboard/tray_windows.go` / `tray_other.go` | Native Win32 tray; Linux terminal lifecycle. |
 | `internal/scoreboard/model.go` | Schema/defaults/validation, file writes, monotonic clock model and formatting. |
 | `internal/scoreboard/engine.go` | Mutex-protected game state, clock actions, snapshots and layout profiles. |
-| `internal/scoreboard/ocr.go` / `ocr_test.go` | Bounded ScoreSight polling, payload validation, runtime ownership/freshness status and regression tests. |
+| `internal/scoreboard/ocr.go` / `ocr_test.go` / `ocr_mappings_test.go` | Bounded ScoreSight polling, payload validation, runtime ownership/freshness status and regression tests. |
 | `internal/scoreboard/web/ocr.js` | Touch OCR connection, actual field options, drafts, follow/takeover and operator warnings. |
 | `internal/scoreboard/background.go` | Image dimension parsing, orientation, transform defaults and validation. |
 | `internal/scoreboard/network.go` | Private IPv4 interface discovery and address validation. |
@@ -28,11 +28,13 @@ Field Scoreboard is one Go process with embedded browser assets. It owns the liv
 
 Persisted data includes game values, durations/direction, OT, auto-hide and layout. Runtime elapsed/paused progress is not persisted: constructing a new App creates Ready clocks. Match and shot actions remain independent; combined Start/Pause is explicit. Shot Reset/Set resumes only when main is running. Shot visibility and the OT label are computed without changing clock timing or discarding the numeric period.
 
-With explicit OCR ownership, accepted readings write the held match-clock base under the same mutex; no internal countdown runs. The snapshot identifies main state as `ocr`. Manual match/combined transport, Set and adjustment are blocked until takeover; the shot clock stays independent. Auto-hide uses the held effective match value. Takeover keeps it paused. A generation check discards requests begun before ownership/source changes. One context-bound worker owns HTTP polling; timeouts never hold the state mutex. Restart connects/follows nothing automatically. Optional config `ocr` stores address/field only; runtime status is exposed to authenticated operators, omitted from sanitized OBS payloads. See [source contract and freshness limitations](OCR_PLAN.md).
+Explicit OCR ownership is per target: main, shot, home_score and away_score. Accepted clock readings write the held clock base under the same mutex; no internal countdown runs, and the snapshot identifies either owned clock as `ocr`. Scores use existing game persistence, writing only when their numeric value changes. Manual/API controls guard the affected owner, combined actions reject before any mutation if either clock follows, and game reset rejects if either score follows. Shot reset resumes only from the internal main running state, never an inferred OCR state. Auto-hide compares both effective values.
+
+Takeover retains the displayed value (clocks paused). A connection generation and per-target request revisions prevent late responses crossing ownership/mapping changes, without suppressing other valid target updates. Malformed or duplicate individual fields cannot poison the whole array. One context-bound worker owns HTTP polling; timeouts never hold the state mutex. Optional config `ocr` stores address/mappings and a legacy main `field` alias. Test.9 settings migrate without automatic follow; explicit empty mappings disable suggestions. Restart is manual/Ready/disconnected. Runtime statuses stay in the authenticated operator snapshot; OBS receives only effective game/clock values. See [source contract and freshness limitations](OCR_PLAN.md).
 
 ## Embedded frontend and rendering
 
-Go embeds `web/*`; asset changes need a new build. The operator UI polls `/api/state` every 250 ms, guards overlapping operations and keeps unfinished form/layout drafts separate from the last server snapshot. Full-state SSE exists for local consumers, but the current operator UI uses polling. Remote browser tokens are held in session storage and sent as headers.
+Go embeds `web/*`; asset changes need a new build. The operator UI polls `/api/state` every 250 ms, guards overlapping operations and keeps unfinished form/layout drafts separate from the last server snapshot. Full-state SSE exists for local consumers, but the current operator UI uses polling. OCR command epochs prevent earlier browser polls repainting state after takeover. The whole OCR section stays last in Live control; polling does not focus or scroll it. Remote browser tokens are held in session storage and sent as headers.
 
 The editor paints a draft layout while live preview and OBS paint the saved layout. Save commits only layout; Discard restores the saved version. Preset loads replace layout without changing match data. A layout save in flight must not erase newer local edits.
 
@@ -75,7 +77,7 @@ The common remote API gate uses constant-time bearer comparison. Client IP comes
 | `POST /api/background[?draft=1]`, `DELETE /api/background` | Raw image upload / removal; draft upload returns metadata for editor Save. |
 | `PUT /api/network` | `{"listen":"127.0.0.1:8790"}`; persists listener for next restart. |
 | `POST /api/ocr/connect` | `{"address":"http://127.0.0.1:18099"}`; persist address and start monitoring only. |
-| `POST /api/ocr/field` | `{"field":"Time"}`; select a discovered field while manual. |
-| `POST /api/ocr/follow`, `POST /api/ocr/manual` | `{}`; explicit match-clock ownership / immediate paused takeover. |
+| `POST /api/ocr/field` | `{"target":"main","field":"Time"}`; select a discovered field while that target is manual; empty field unconfigures. |
+| `POST /api/ocr/follow`, `POST /api/ocr/manual` | `{"target":"main"}`; per-target follow/takeover. Targets: main, shot, home_score, away_score. Omitted target retains test.9 main behavior. |
 
 JSON payloads require `Content-Type: application/json`; decoding rejects unknown fields and multiple JSON values. Image uploads use image bytes. The HTTP Builder produces supported action requests; see [Companion setup](COMPANION_SETUP.md). Security/API tests live with the server/engine tests. Preserve these boundaries and saved-config compatibility.

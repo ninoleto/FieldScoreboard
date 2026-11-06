@@ -1,34 +1,34 @@
 # Field Scoreboard handoff
 
-Checkpoint: **2026-11-06**, **v0.1.0-test.9**, local OCR development build.
-Branch: `ocr/scoresight-match-clock`. Published [test.8](https://github.com/ninoleto/FieldScoreboard/releases/tag/v0.1.0-test.8) remains unchanged. **Do not publish this OCR build without a new instruction.**
+Checkpoint: **2026-11-06**, **v0.1.0-test.10**, local OCR development build.
+Branch: `ocr/scoresight-match-clock`. Test.9 checkpoint `b86ef33` and its packages are preserved. Published [test.8](https://github.com/ninoleto/FieldScoreboard/releases/tag/v0.1.0-test.8) remains unchanged. **Do not publish this OCR build without a new instruction.**
 
-Read [AGENTS.md](AGENTS.md) first. Work began from a clean test.8 tree; no user changes were overwritten. Field Timer remains separate and untouched.
+Read [AGENTS.md](AGENTS.md) first. Work began from the clean completed test.9 branch; no user changes were overwritten. Field Timer remains separate and untouched.
 
 ## Completed
 
-- Working ScoreSight match-clock connector with address/check, dynamic large field dialog (Time preferred), recognised/accepted values and clear connection/reading warnings. Controls remain touch-friendly on desktop and narrow screens; no sliders.
-- Single Go polling worker (~5 Hz, 800 ms timeout, bounded payload, no redirect/proxy/credential forwarding). ScoreSight /json state and strict MM:SS validation gate accepted readings.
-- Explicit OCR ownership supplies the effective match time while the internal clock stays held. Pauses/resets reflect subsequent readings; bad/missing/disconnected readings keep the last value.
-- Immediate manual takeover retains the time paused and rejects late responses. Following again requires an explicit action. Restart begins manual/Ready and disconnected; only address/field settings persist.
-- Scores/fouls/period/names and shot timing are not mapped. Shot controls stay independent; shot resets stay Ready during OCR ownership because the source's running state is unknown. Auto-hide derives from the effective match value.
-- Manual match/combined commands are guarded while following. Existing authentication protects OCR APIs; the public overlay does not receive OCR addresses, field lists or warnings.
-- Retained test.8 touch/numeric controls, Fine position 5/10/20 default 5 and X/Y ±1, background proportions/editing, Save/Discard, layout coordinates, presets and game/config compatibility.
+- Entire OCR section moved last in Live control, after every manual panel and before footer. Stable order at all widths/connection/ownership states; no automatic opening/polling focus or scroll to OCR.
+- Four independent mappings: main, shot, home_score, away_score. Large source dialogs, per-target recognised/accepted values and statuses, Follow/takeover buttons; shared connection/freshness once. Suggestions only use actual matching names. Missing fields remain unconfigured/manual; explicit unconfiguration persists.
+- One bounded backend poll worker (~5 Hz, 800 ms timeout). Per-field status/format/limit validation isolates invalid or duplicate data; missing/rejected/disconnected values hold instead of becoming zero. Valid zero is accepted.
+- OCR-owned clocks hold effective source values without internal countdown. Takeover immediately retains the displayed value, leaves clocks paused and invalidates that target’s pending responses while others continue. Browser command epochs also reject stale poll snapshots.
+- Manual/API controls respect ownership. Combined actions reject atomically if either clock follows; game reset rejects atomically if either score follows. Manual shot reset never infers running from OCR match time. Auto-hide compares both effective values.
+- Saved address/mappings and changed scores; test.9 `field` config/API compatibility. Restart manual/Ready/disconnected; explicit Follow required again. Fouls/period/names remain unmapped, and layouts/presets cannot replace live values.
+- Preserved authentication/public-overlay boundaries, all touch/numeric controls, Fine position 5/10/20 default 5 and X/Y ±1, background proportions/editing, Save/Discard and logical coordinates. No sliders.
 
-## Source and evidence
+## Verification and source map
 
-See [connector guide](docs/OCR_PLAN.md), [architecture](docs/ARCHITECTURE.md), [release notes](docs/RELEASE_NOTES-v0.1.0-test.9.md) and [verification](docs/VERIFICATION-v0.1.0-test.9.md). Implementation is in `ocr.go`, engine/server integration and `web/ocr.js`; tests include `ocr_test.go` and `scripts/test_ocr.py`.
+See [connector guide](docs/OCR_PLAN.md), [architecture](docs/ARCHITECTURE.md), [release notes](docs/RELEASE_NOTES-v0.1.0-test.10.md) and [verification](docs/VERIFICATION-v0.1.0-test.10.md). Implementation: `ocr.go`, engine/server integration, `web/ocr.js`, bottom HTML cards and shared CSS. Regressions: `ocr_test.go`, `ocr_mappings_test.go`, `scripts/test_ocr.py`, `ocr_mapping_checks.py`, `ui_ocr_checks.py`.
 
-Completed checks: Windows Go tests/vet/JS syntax and cross-builds; final Linux Go tests/vet/race; existing full UI/zoom and image regressions; new OCR browser checks at all five widths and narrow/1920×1080 screenshot review; extracted Windows/Linux HTTP and simulated OCR smoke/restart; source/archive integrity, documentation links and secret scans. Local Windows/Linux/source ZIPs and SHA256SUMS.txt are prepared for test.9. Exact results and manual limits are in the verification record.
+Windows Go tests/vet/JS syntax and all three builds passed. Linux Go tests/vet/race and native HTTP/multi-field OCR checks passed. OCR browser checks passed at 375/500/1000/1440/1920, effective 200%/400% zoom, mixed ownership, delayed browser response, focus/scroll, drafts, dynamic dialogs and disconnected restart. Established UI/native zoom, numeric/Fine position and image regressions passed. Responsive screenshots were reviewed, including maximized 1920×1080. Final package gates are recorded in the verification document and checksum manifest.
 
-The live ScoreSight v0.4.3 endpoint was read directly and then exercised through an isolated native build. It returned Time, MM:SS and Success/SameNoChange. Forty observations over eight seconds included nine distinct times. Follow/takeover/restart and untouched unrelated fields were checked live. Source pause/reset, rejection, missing fields, disconnection/recovery and delayed responses were simulated.
+Live ScoreSight v0.4.3 exposed Time and Home Score, but no Shot Clock or Away Score. An isolated test.10 process observed changing match time (40 samples, 10 values) and stable home score 1 (20 samples), checked independent follow/takeover and manual restart. Changing scores, shot/away readings, deliberate pauses/resets/failures and delays were simulated. No live source or Field Timer controls were changed.
 
-**Freshness is unavailable:** this source endpoint has no detection timestamp or video heartbeat. HTTP success and unchanged/cached responses cannot prove live video. The UI says so and warns after three seconds without a numeric change. Do not replace this with a false “live” indicator or an extrapolated countdown.
+**Freshness remains unavailable:** `/json` has no detection timestamp or video heartbeat. Cached success cannot establish live video. Shared guidance explains this; unchanged fields warn after three seconds. Do not add an extrapolated countdown or false “live” indicator.
 
-## Remaining operator checks and next steps
+## Manual evidence and next checks
 
-- Physical touchscreen, Windows tray, real OBS rendering of OCR output, deliberate live-source pauses/resets, hardware capture loss/freeze and live-event accuracy/latency.
-- Separate-machine LAN/firewall and real Companion devices. Linux native automated checks do not establish OBS or touchscreen behavior.
-- The owner reported the Linux application/overlay working with OBS Flatpak on 2026-11-06 for test.8 only; do not extend that statement to test.9 or other manual tests.
-- Rehearse with an isolated configuration before using live production data. Keep test.8 as the published checkpoint.
-- Additional OCR fields, source heartbeat support when an upstream API supplies it, confidence/stability policy and automatic sport rules remain future work. Follow the existing manual-override, persistence and security contracts.
+- **User-reported, 2026-11-06:** test.9 match-clock OCR works in the operator’s home setup. This is not venue validation or validation of new test.10 mappings.
+- Historical **user-reported, 2026-11-06:** test.8 Linux application/overlay works with OBS Flatpak. Do not extend that statement to OCR, physical touchscreen, Windows tray, LAN, Companion or live events.
+- Next operator rehearsal: configure actual shot/away fields, exercise mixed ownership and individual takeover, change live scores, pause/reset/freeze the source, and inspect OBS output. Use a separate portable folder/configuration and keep manual fallback available.
+- Still needed: physical touchscreen, Windows tray, test.10 OBS, separate-machine LAN/firewall, Companion hardware, venue conditions/accuracy and production latency.
+- Further OCR targets, verified source freshness when supplied upstream, confidence/stability policy and automatic sport rules are future work. Preserve existing contracts and keep publication separate from local testing.

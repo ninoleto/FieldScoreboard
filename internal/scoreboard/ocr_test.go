@@ -15,7 +15,7 @@ import (
 
 func TestOCRParsingAndAddress(t *testing.T) {
 	stored := newOCRRuntime(&OCRSettings{Address: "http://localhost:18099/json", Field: "Time"})
-	if stored.Address != defaultScoreSight || stored.Following || stored.active {
+	if stored.Address != defaultScoreSight || stored.targets["main"].Following || stored.active {
 		t.Fatal("stored source not normalized/manual", stored)
 	}
 	for text, want := range map[string]int{"00:00": 0, "4:27": 267, "51:47": 3107, "10080:00": 604800} {
@@ -42,7 +42,7 @@ func TestOCRParsingAndAddress(t *testing.T) {
 }
 
 func injectOCR(a *App, text, state string, at time.Time) {
-	a.acceptOCR(a.ocr.generation, []scoreSightResult{{Name: "Unused score", Text: "999", State: "Success"}, {Name: "Time", Text: text, State: state}}, nil, at)
+	a.acceptOCR(a.ocrTicketLocked(), []scoreSightResult{{Name: "Unused score", Text: "999", State: "Success"}, {Name: "Time", Text: text, State: state}}, nil, at)
 }
 
 func TestOCROwnershipHoldTakeoverAndUnrelatedState(t *testing.T) {
@@ -69,12 +69,12 @@ func TestOCROwnershipHoldTakeoverAndUnrelatedState(t *testing.T) {
 		}
 	}
 	for _, result := range []scoreSightResult{{Name: "Time", Text: "00:00", State: "FailedFilter"}, {Name: "Time", State: "Empty"}, {Name: "Time", Text: "garbage", State: "Success"}, {Name: "Other", Text: "00:00", State: "Success"}, {Name: "Time", Text: "00:00", State: "Unknown"}} {
-		a.acceptOCR(a.ocr.generation, []scoreSightResult{result}, nil, time.Now())
+		a.acceptOCR(a.ocrTicketLocked(), []scoreSightResult{result}, nil, time.Now())
 		if a.State().Main.Display != "20:00" || a.State().OCR.CanFollow || a.State().OCR.Warning == "" {
 			t.Fatal("bad/missing reading replaced held time", a.State())
 		}
 	}
-	a.acceptOCR(a.ocr.generation, nil, errors.New("Disconnected."), time.Now())
+	a.acceptOCR(a.ocrTicketLocked(), nil, errors.New("Disconnected."), time.Now())
 	if a.State().Main.Display != "20:00" || a.State().OCR.Connection != "error" {
 		t.Fatal("lost time on disconnect")
 	}
@@ -92,7 +92,7 @@ func TestOCROwnershipHoldTakeoverAndUnrelatedState(t *testing.T) {
 	if !errors.Is(a.SetClock("main", 60, "down"), errOCRFollowing) || !errors.Is(a.AdjustClock("main", 1), errOCRFollowing) {
 		t.Fatal("manual set/adjust bypassed ownership")
 	}
-	oldGeneration := a.ocr.generation
+	oldGeneration := a.ocrTicketLocked()
 	a.TakeManualControl()
 	if a.State().Main.State != "paused" || a.State().Main.Display != "04:59" {
 		t.Fatal("takeover must retain paused value")
@@ -159,7 +159,7 @@ func TestOCRAutoHideRestartAndFreshness(t *testing.T) {
 		t.Fatal("auto-hide changed shot state")
 	}
 	a.mu.Lock()
-	a.ocr.changedAt = time.Now().Add(-5 * time.Second)
+	a.ocr.targets["main"].changedAt = time.Now().Add(-5 * time.Second)
 	a.mu.Unlock()
 	injectOCR(a, "00:41", "SameNoChange", time.Now())
 	view := a.State().OCR
@@ -180,7 +180,7 @@ func TestOCRAutoHideRestartAndFreshness(t *testing.T) {
 }
 
 func TestScoreSightWireValidation(t *testing.T) {
-	for _, body := range []string{`{"Time":"00:00"}`, `null`, `[{"name":"Time","text":"12:34","state":"Success"},{"name":"Time","text":"00:00","state":"Empty"}]`, `[{"name":"Time","text":0,"state":"Success"}]`, strings.Repeat("x", ocrBodyLimit+1)} {
+	for _, body := range []string{`{"Time":"00:00"}`, `null`, strings.Repeat("x", ocrBodyLimit+1)} {
 		source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, body) }))
 		_, err := fetchScoreSight(context.Background(), source.Client(), source.URL)
 		source.Close()

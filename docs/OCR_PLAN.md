@@ -1,47 +1,64 @@
 # ScoreSight connection: current scope and future work
 
-## Implemented in v0.1.0-test.9 (local development build)
+## Local test.10 setup
 
-The first working connector follows **one match-clock field** from ScoreSight's read-only `GET /json` endpoint. It was checked against a running ScoreSight v0.4.3. This build is local-only; the published test.8 release is unchanged.
+Test.10 adds independent **match clock, shot clock, home score and away score** mappings to test.9. It is a local development build; the published test.8 release remains unchanged. The entire ScoreSight section is at the **bottom of Live control**, after scores, fouls, period, Both clocks and both individual clock panels, before the footer. Polling does not scroll or move focus there.
 
-Under **Live control → ScoreSight OCR — match clock**:
+1. Enter the ScoreSight address, default `http://127.0.0.1:18099`. The connection is made by the Field Scoreboard server, not the browser/tablet. A private LAN IP is also supported.
+2. Choose **Connect / Check connection**. One connection monitors all discovered fields, without taking control. Suggested mappings are selected only when the corresponding names actually exist:
 
-1. Enter the ScoreSight address, default `http://127.0.0.1:18099`. This is relative to the Field Scoreboard server, not the browser/tablet. A private LAN IP is also supported.
-2. Choose **Connect / Check connection**. This starts monitoring without changing the match clock. The large field dialog lists actual returned fields and selects **Time** when available. Select a different field if needed.
-3. Inspect the recognised text, ScoreSight status and warnings. A valid `MM:SS` reading enables **Follow OCR clock**.
-4. Choose Follow explicitly. Accepted readings now supply the displayed match time; the internal clock does not advance between readings. Source time changes, pauses, resets and a valid `00:00` are reflected by subsequent readings.
-5. **Take manual control** immediately releases OCR ownership, keeps the displayed time and leaves the match clock paused. Start / Resume starts manual timing. Monitoring can continue, but it cannot change the clock until Follow is explicitly chosen again.
+   | Target | Suggested source | Accepted values |
+   |---|---|---|
+   | Match clock | Time | M:SS / MM:SS (one to five minute digits, exactly two second digits, at most 10080:00) |
+   | Shot clock | Shot Clock | Whole seconds or M:SS / MM:SS, 0–3600 seconds |
+   | Home score | Home Score | Whole numbers, 0–999 (one to three digits) |
+   | Away score | Away Score | Whole numbers, 0–999 (one to three digits) |
 
-Match/combined transport, Set and adjustment actions are blocked while following; use Take manual control first. Shot controls remain independent. Because this endpoint cannot prove the source's running state, shot reset/set stays Ready during OCR ownership; start the shot clock explicitly. Normal conditional shot-reset behavior returns in manual mode. Auto-hide uses the effective OCR match value (configured duration minus elapsed for count-up).
+3. Each card has its own large source selector, recognised value, last accepted value, reading status and warnings. Choose another discovered field if needed. **Unconfigured — manual** explicitly removes a mapping and prevents automatic re-suggestion. Missing suggested fields remain unconfigured/manual. A saved mapping whose source disappears shows a missing-field warning.
+4. Choose **Follow OCR** separately for each target. Mixed operation is supported: for example OCR match time and scores with a manual shot clock. Merely connecting or selecting a source never changes displayed values.
+5. **Take manual control** immediately releases that target, retains its displayed value and leaves a clock paused. Press Start / Resume to time manually. Other targets keep following. Monitoring can continue, but following again always requires an explicit action.
 
-Only the match clock is mapped. Unconfigured scores, fouls, names, period/OT and shot clock are untouched. The operator can still change those fields manually. Layouts/presets remain independent.
+Clocks follow accepted source values without an independent internal countdown. Source pauses and resets appear in subsequent readings; a valid zero is accepted. Missing, rejected or malformed readings never clear a field or turn it into zero. Failure of one field does not block the others. Connection loss holds all displayed values; recovery resumes only targets still following.
 
-## Source contract and freshness
+Manual controls and API/Companion actions cannot change an OCR-owned field. **Both clocks actions reject the entire operation when either clock follows**, leaving both unchanged. Reset scores & fouls rejects the entire operation while either score follows. Other manual controls remain available. Because OCR cannot prove running status, a manual shot Reset/Set/preset stays Ready while the match clock follows OCR; start the shot clock explicitly. Normal conditional shot-reset behavior returns in manual mode. Auto-hide compares the effective match and shot values (configured duration minus elapsed for count-up match time).
 
-The observed and documented full JSON format is an array:
+Fouls, names and period/OT are not mapped. Layout edits/presets preserve game values and OCR ownership.
+
+## Validation and freshness
+
+ScoreSight v0.4.3's observed full JSON format is an array:
 
 ```json
 [{"name":"Time","text":"12:34","state":"SameNoChange","rect":{"x":1,"y":2,"width":100,"height":50}}]
 ```
 
-Accept `Success` and `SameNoChange` only. Reject `FailedFilter`, `Empty`, unknown states and malformed time strings. Parsing accepts one to five minute digits and exactly two second digits, seconds 00–59, with a seven-day maximum. No decimal times, substitutions or guessed digits. A missing field, invalid payload, timeout or HTTP error keeps the last match time and shows a warning. Recovery resumes updates only if OCR still owns the clock.
+Only `Success` and `SameNoChange` are accepted. `FailedFilter`, `Empty`, unknown statuses and malformed values are rejected independently. Seconds in colon-formatted times must be 00–59. No decimal times, signs, surrounding whitespace, guessed digits or silent clamping are allowed. Duplicate names or invalid value/status types reject that source field without blocking valid other fields. An invalid whole response, timeout or HTTP error holds all values.
 
-ScoreSight v0.4.3's observed `/json` responses supply **no detection timestamp, frame sequence or video heartbeat**. Its HTTP Date/no-cache headers and repeated `Success`/`SameNoChange` responses do not prove a live video feed. The panel therefore always identifies freshness as unverified. After three seconds without a value change it warns that the source may be paused or stale. That warning cannot distinguish an intentional pause from a frozen source; inspect the ScoreSight video. The last-change age measures observed numeric changes, not detection freshness. No extrapolated countdown or stale-to-zero fallback is used.
+The observed `/json` endpoint supplies **no detection timestamp, frame sequence or video heartbeat**. HTTP Date, no-cache headers and repeated responses do not prove live video. Shared freshness guidance appears once above the four cards. After three seconds without a numeric change, a card warns that its source may be paused or stale. This cannot distinguish an intentional pause from frozen/cached video; inspect ScoreSight. Last-change age measures observed numeric changes, not detection freshness.
 
-The actual schema and status interpretation were checked against the [official HTTP API guide](https://royshil.github.io/scoresight/http_server.html) and the live endpoint. The optional overlay version counter tracks changes, not a video heartbeat, and is not treated as source freshness.
+The schema/status contract was checked against the [official HTTP API guide](https://royshil.github.io/scoresight/http_server.html) and a live endpoint in test.9; test.10 directly observed Time and Home Score. An optional overlay change counter is not a video heartbeat.
 
-## Backend and persistence
+## Backend, persistence and API
 
-A single Go worker polls approximately five times per second with an 800 ms request timeout, bounded response size and no overlapping requests. It uses fixed `/json` GET requests, disables redirects/proxies and sends no Field Scoreboard credentials upstream. Addresses accept HTTP(S) with localhost or literal loopback/private IPs; credentials, query strings and arbitrary paths/public hosts are rejected. A pasted `/json` suffix is accepted and normalized.
+One Go worker polls approximately five times per second with an 800 ms request timeout, bounded response size and no overlapping requests. It uses fixed `/json` GET requests, disables redirects/proxies and sends no Field Scoreboard credentials upstream. HTTP(S) addresses accept localhost or literal loopback/private IPs; credentials, query strings and arbitrary paths/public hosts are rejected. A pasted `/json` suffix is normalized.
 
-Address and explicitly selected field are optional configuration settings. Connection/following state and observed times are runtime-only. Restart always starts manual/Ready, with no automatic connection or follow. Changed settings require Connect again; field/source changes are blocked while following.
+Address and mappings persist in optional config `ocr`. Test.9 `field` settings migrate to the main mapping. Suggestions are saved; an explicit empty mapping stays empty. Connection, observations, ownership and clock progress are runtime-only. Accepted score changes use normal game persistence, without writing identical reads repeatedly. **Restart is manual/Ready and disconnected** with saved scores and mappings retained. Take all fields manual before changing/rechecking the connection; an individual manual target can be remapped while others follow.
 
-Authenticated operator endpoints are `POST /api/ocr/connect` (`{"address":"http://127.0.0.1:18099"}`), `/api/ocr/field` (`{"field":"Time"}`), `/api/ocr/follow` and `/api/ocr/manual` (both `{}`). All require JSON content type; remote callers require the existing bearer header. The full operator snapshot includes connection/reading status. The read-only overlay receives only the effective match clock through its existing sanitized feed, not the OCR address, field list or warnings.
+All routes below require JSON content type and the existing bearer header for remote callers:
 
-Generation checks discard in-flight results across connection, field and ownership changes. Manual takeover never waits for network I/O. OCR never repeatedly calls the existing Set/Start APIs, changes configured duration/direction or writes readings to disk.
+| POST route | Body |
+|---|---|
+| `/api/ocr/connect` | `{"address":"http://127.0.0.1:18099"}` |
+| `/api/ocr/field` | `{"target":"main","field":"Time"}` (empty field unconfigures) |
+| `/api/ocr/follow` | `{"target":"main"}` |
+| `/api/ocr/manual` | `{"target":"main"}` |
 
-## Evidence and remaining work
+Targets are `main`, `shot`, `home_score`, `away_score`; omitted target means `main` for test.9 API compatibility. `/api/state` exposes per-target status under `ocr.targets` and retains legacy main aliases. The read-only OBS feed exposes effective clock/score values, without OCR address, source list or warnings.
 
-See [test.9 verification](VERIFICATION-v0.1.0-test.9.md). Live observation covers connection, changing readings, follow, takeover and restart against the running source. Source pauses/resets, rejection, missing fields and failures/recovery are separately simulated; Field Timer and the live source were not controlled by these tests.
+Connection generations and per-target revisions discard late responses only for changed targets. Takeover does not wait for network I/O. Browser poll responses begun before a control action are also discarded. OCR never repeatedly invokes Set/Start or alters configured durations/direction.
 
-Future work remains optional: mappings for other fields, verified detection freshness if an upstream API supplies it, field-wise confidence/stability policy, multiple-source/manual overrides and real venue evaluation. No general automatic sport rules or guaranteed OCR accuracy are included.
+## Evidence and future work
+
+See [test.10 verification](VERIFICATION-v0.1.0-test.10.md) and historical [test.9 verification](VERIFICATION-v0.1.0-test.9.md). On 2026-11-06 the operator reported match-clock OCR working in the home setup with test.9. **This is not venue validation.** Automated source pauses/resets/failures are simulations; Field Timer and the live source were not controlled by those tests.
+
+Future work: OCR fouls/period, verified detection freshness if supplied upstream, confidence/stability policy, multiple sources and venue evaluation. Automatic sport rules and guaranteed OCR accuracy are not included.

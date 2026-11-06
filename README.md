@@ -2,9 +2,9 @@
 
 **A manual sports scoreboard and graphics editor for OBS Studio.** Control scores, fouls, periods and two independent clocks from a large, touch-friendly web panel. Arrange your artwork and scoreboard fields in one transparent 1920×1080 Browser Source, then nest it over your camera scene.
 
-Free and open source under the [MIT licence](LICENSE). Runs on **Windows x64 and Linux x64**, without a cloud account or extra application runtime. **This branch is v0.1.0-test.9, a local-only ScoreSight development build.** The published first preview remains test.8; the download links below are for that unchanged release. Neither build is a fully field-validated stable release.
+Free and open source under the [MIT licence](LICENSE). Runs on **Windows x64 and Linux x64**, without a cloud account or extra application runtime. **This branch is v0.1.0-test.10, a local-only ScoreSight development build.** The published first preview remains test.8; the download links below are for that unchanged release. Neither build is a fully field-validated stable release.
 
-For the new connection, open **Live control → ScoreSight OCR — match clock**. Enter the ScoreSight address (default `http://127.0.0.1:18099`), Connect, select the actual Time field, then choose **Follow OCR clock**. **Take manual control** keeps the displayed time paused. Only the match clock is mapped. Rejected/missing readings keep the last value; source video freshness cannot be verified by this endpoint. See [setup and limitations](docs/OCR_PLAN.md), [test.9 notes](docs/RELEASE_NOTES-v0.1.0-test.9.md) and [verification](docs/VERIFICATION-v0.1.0-test.9.md). Use the separate local test.9 packages with an isolated configuration; do not overwrite production data.
+The optional **ScoreSight OCR** section is at the **bottom of Live control**, below every manual panel. Connect to discover fields, then follow **match clock, shot clock, home score and away score independently**. Each card shows its source, recognised/accepted value and manual takeover. Missing fields stay unconfigured; bad readings keep the displayed value. Takeover retains the value and pauses clocks. See [setup and limitations](docs/OCR_PLAN.md), [test.10 notes](docs/RELEASE_NOTES-v0.1.0-test.10.md) and [verification](docs/VERIFICATION-v0.1.0-test.10.md). Use the separate local test.10 packages with an isolated configuration; the public downloads below remain test.8.
 
 ## Download and start
 
@@ -55,8 +55,8 @@ The built-in **Companion HTTP Builder** generates requests for Bitfocus Companio
 
 ## Preview status and development
 
-**User-reported manual smoke test, 2026-11-06, for test.8:** the Linux application and its overlay work with OBS Flatpak. This does not validate the OCR build or establish physical touchscreen, Windows tray, LAN, Companion or live-event validation. See [test.8 verification](docs/VERIFICATION-v0.1.0-test.8.md) and the separate [test.9 results](docs/VERIFICATION-v0.1.0-test.9.md).
+**User-reported manual smoke test, 2026-11-06, for test.8:** the Linux application and its overlay work with OBS Flatpak. This does not validate the OCR build or establish physical touchscreen, Windows tray, LAN, Companion or live-event validation. See [test.8 verification](docs/VERIFICATION-v0.1.0-test.8.md) and the separate [test.10 results](docs/VERIFICATION-v0.1.0-test.10.md).
 
-The local test.9 branch includes optional match-clock following from ScoreSight. Other OCR field mappings, automatic sport rules, NDI and direct OBS control are **not included**. See [current scope and future work](docs/OCR_PLAN.md).
+**User-reported home smoke test, 2026-11-06:** match-clock OCR works in the operator’s home setup with test.9. This is not venue validation. Local test.10 adds independent clock/score mappings. OCR fouls/period, automatic sport rules, NDI and direct OBS control are **not included**. See [current scope and future work](docs/OCR_PLAN.md).
 
 To contribute, read [CONTRIBUTING.md](CONTRIBUTING.md), the [architecture guide](docs/ARCHITECTURE.md), [AGENTS.md](AGENTS.md) and the current [handoff](handoff.md). Field Scoreboard is separate from Field Timer and is not affiliated with OBS Studio or Bitfocus Companion.

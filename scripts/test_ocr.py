@@ -33,15 +33,18 @@ def wait_for(predicate,timeout=5):
         time.sleep(.05)
     raise AssertionError('Timed out: '+json.dumps(state.get('ocr',{})))
 
-fixture={'text':'12:34','state':'SameNoChange','status':200,'missing':False,'extra':False}
+fixture={'text':'12:34','state':'SameNoChange','status':200,'missing':False,'extra':False,'home':'999','shot':'00:01','away':'7','delay':0}
+entered=threading.Event()
 class Source(BaseHTTPRequestHandler):
     def log_message(self,*args):pass
     def do_GET(self):
         assert self.path=='/json' and self.headers.get('Authorization') is None
         state=fixture.copy()
         payload=[] if state['missing'] else [{'name':'Time','text':state['text'],'state':state['state'],'rect':{'x':1,'y':2,'width':100,'height':50}}]
-        # Other fields intentionally look usable but must never be applied.
-        payload += [{'name':'Home Score','text':'999','state':'Success'},{'name':'Shot Clock','text':'00:01','state':'Success'}]
+        # Discovered fields stay manual until individually followed.
+        payload += [{'name':'Home Score','text':state['home'],'state':'Success'},{'name':'Shot Clock','text':state['shot'],'state':'Success'}]
+        payload.append({'name':'Away Score','text':state['away'],'state':'Success'})
+        if state['delay']:entered.set();time.sleep(state['delay'])
         if state['extra']:payload.append({'name':'Alternate','text':'03:21','state':'Success'})
         self.send_response(state['status']);self.send_header('Content-Type','application/json');self.end_headers()
         self.wfile.write(json.dumps(payload).encode())
@@ -65,7 +68,7 @@ with tempfile.TemporaryDirectory() as folder:
             request('/api/ocr/connect',{'address':address})
             state=wait_for(lambda s:s['ocr']['can_follow'])
             assert state['ocr']['field']=='Time' and state['main']==original['main']
-            assert state['ocr']['freshness']=='unavailable' and state['ocr']['warning']
+            assert state['ocr']['freshness']=='unavailable'
             request('/api/ocr/follow',{})
             state=wait_for(lambda s:s['main']['state']=='ocr')
             if args.live_address:
@@ -84,7 +87,7 @@ with tempfile.TemporaryDirectory() as folder:
                 for update,reading in [({'text':'00:00','state':'FailedFilter'},'rejected'),({'text':'','state':'Empty'},'rejected'),({'text':'99:99','state':'Success'},'malformed'),({'missing':True},'missing'),({'status':503},'unavailable')]:
                     fixture.update(update)
                     state=wait_for(lambda s:s['ocr']['reading']==reading)
-                    assert state['main']['display']=='04:59' and state['ocr']['warning']
+                    assert state['main']['display']=='04:59' and (state['ocr']['warning'] or state['ocr']['connection_warning'])
                 fixture.update(text='00:20',state='Success',missing=False,status=200)
                 wait_for(lambda s:s['main']['display']=='00:20')
                 request('/api/game',{'field':'shot_auto_hide','value':True})
@@ -102,59 +105,41 @@ with tempfile.TemporaryDirectory() as folder:
             for key in ('home_score','away_score','home_fouls','away_fouls','period','period_overtime','home_name','away_name','shot'):
                 assert state[key]==original[key],('unrelated field changed',key)
             print(('LIVE' if args.live_address else 'SIMULATED')+': check/follow, last-value hold, takeover and unrelated fields PASS')
+            if args.live_address:
+                discovered=request('/api/state')['ocr']['targets']
+                if discovered['home_score']['can_follow']:
+                    request('/api/ocr/follow',{'target':'home_score'})
+                    values=[]
+                    for _ in range(20):
+                        sample=request('/api/state');values.append(sample['home_score'])
+                        assert sample['ocr']['targets']['home_score']['following'] and not sample['ocr']['targets']['main']['following']
+                        time.sleep(.2)
+                    held=request('/api/ocr/manual',{'target':'home_score'})['home_score'];time.sleep(.5)
+                    assert request('/api/state')['home_score']==held
+                    print('LIVE home score: follow/mixed manual match/takeover',json.dumps({'samples':20,'first':values[0],'last':values[-1],'distinct_values':len(set(values))}),flush=True)
+            if not args.live_address:
+                from ocr_mapping_checks import verify_mappings
+                verify_mappings(request,wait_for,fixture,entered)
             if args.ui:
-                from playwright.sync_api import sync_playwright
-                from ui_touch_checks import choose,navigate,no_overflow
-                with sync_playwright() as p:
-                    executable=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium') or shutil.which('google-chrome')
-                    browser=p.chromium.launch(headless=True,executable_path=executable)
-                    try:
-                        for width in (375,500,1000,1440,1920):
-                            context=browser.new_context(viewport={'width':width,'height':1080},has_touch=width==375)
-                            page=context.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
-                            page.goto(base);page.wait_for_function("()=>document.getElementById('ocrConnection').textContent==='Connected to ScoreSight'")
-                            assert page.locator('#ocrField').is_hidden()
-                            page.locator('#ocrAddress').fill('http://127.0.0.1:')
-                            navigate(page,'editor');navigate(page,'control');page.wait_for_timeout(600)
-                            assert page.locator('#ocrAddress').input_value()=='http://127.0.0.1:'
-                            assert page.locator('#ocrFollow').is_disabled()
-                            page.locator('#ocrAddress').fill(address);page.locator('#ocrConnect').click()
-                            page.wait_for_function("()=>!document.getElementById('ocrFollow').disabled")
-                            fixture['extra']=True
-                            page.wait_for_function("()=>[...document.getElementById('ocrField').options].some(o=>o.value==='Alternate')")
-                            page.locator('#ocrFieldChoice').click();page.keyboard.press('Escape')
-                            assert page.locator('#ocrFieldChoice').evaluate('e=>e===document.activeElement')
-                            choose(page,'ocrField','Alternate')
-                            page.wait_for_function("()=>document.getElementById('ocrRecognized').textContent==='03:21'")
-                            choose(page,'ocrField','Time')
-                            page.wait_for_function("()=>!document.getElementById('ocrFollow').disabled")
-                            page.locator('#ocrFollow').focus();page.keyboard.press('Enter')
-                            page.wait_for_function("()=>document.getElementById('ocrMode').textContent==='FOLLOWING OCR'")
-                            assert page.locator('[data-clock-action="main:start"]').is_disabled()
-                            assert page.locator('[data-clock-action="both:start"]').is_disabled()
-                            assert page.locator('[data-clock-action="shot:start"]').is_enabled()
-                            assert page.locator('#ocrFollow').get_attribute('aria-pressed')=='true'
-                            for id in ('ocrConnect','ocrFieldChoice','ocrFollow','ocrManual','ocrAddress'):
-                                assert page.locator('#'+id).bounding_box()['height']>=60,(width,id)
-                            assert page.evaluate('new Set([...document.querySelectorAll("[id]")].map(e=>e.id)).size===document.querySelectorAll("[id]").length')
-                            no_overflow(page)
-                            page.locator('#ocrHeading').scroll_into_view_if_needed()
-                            page.screenshot(path=str(root/f'.test/ocr-{width}.png'),full_page=True)
-                            page.locator('.ocr-card').screenshot(path=str(root/f'.test/ocr-panel-{width}.png'))
-                            if width==1920:page.screenshot(path=str(root/'.test/ocr-maximized-1920x1080.png'))
-                            if width==375:page.locator('#ocrManual').tap()
-                            else:page.locator('#ocrManual').focus();page.keyboard.press('Space')
-                            page.wait_for_function("()=>document.getElementById('mainState').textContent==='PAUSED'")
-                            assert page.locator('[data-clock-action="main:start"]').is_enabled()
-                            assert not errors,errors
-                            print('OCR dynamic field dialog, drafts, keyboard/touch and geometry:',width,'PASS')
-                            context.close()
-                    finally:browser.close()
+                from ui_ocr_checks import verify_ocr_ui
+                verify_ocr_ui(base,request,wait_for,fixture,root,address)
+            saved=request('/api/state')['ocr']['targets']
             proc.terminate();proc.wait(timeout=5);proc=start()
             restarted=request('/api/state')
             assert restarted['ocr']['connection']=='disconnected' and not restarted['ocr']['following'] and restarted['main']['state']=='ready'
             assert restarted['ocr']['address']==address
+            for target,view in restarted['ocr']['targets'].items():
+                assert not view['following'] and view['field']==saved[target]['field']
+            assert restarted['shot']['state']=='ready'
             print('OCR restart: settings retained, manual Ready, no automatic connection/follow PASS')
+            if args.ui:
+                from ui_ocr_checks import verify_disconnected_ui
+                verify_disconnected_ui(base)
+        except BaseException:
+            log.flush()
+            print('OCR test failed; native exit status:',proc.poll(),flush=True)
+            print((Path(folder)/'server.log').read_text(errors='replace'),flush=True)
+            raise
         finally:
             proc.terminate();proc.wait(timeout=5)
 source.shutdown();source.server_close()

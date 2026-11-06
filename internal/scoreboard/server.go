@@ -249,24 +249,32 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 		s.done(w, s.App.ConnectOCR(v.Address))
 	case p == "ocr/field" && r.Method == "POST":
 		var v struct {
-			Field string `json:"field"`
+			Field  string `json:"field"`
+			Target string `json:"target"`
 		}
 		if err := decode(r, &v); err != nil {
 			apiErr(w, 400, err.Error())
 			return
 		}
-		s.done(w, s.App.SelectOCRField(v.Field))
+		if v.Target == "" {
+			v.Target = "main"
+		}
+		s.done(w, s.App.SelectOCRMapping(v.Target, v.Field))
 	case (p == "ocr/follow" || p == "ocr/manual") && r.Method == "POST":
-		var v struct{}
+		var v struct {
+			Target string `json:"target"`
+		}
 		if err := decode(r, &v); err != nil {
 			apiErr(w, 400, err.Error())
 			return
+		}
+		if v.Target == "" {
+			v.Target = "main"
 		}
 		if p == "ocr/follow" {
-			s.done(w, s.App.FollowOCR())
+			s.done(w, s.App.FollowOCRTarget(v.Target))
 		} else {
-			s.App.TakeManualControl()
-			s.done(w, nil)
+			s.done(w, s.App.TakeOCRManual(v.Target))
 		}
 	case p == "state" && r.Method == "GET":
 		respond(w, 200, s.App.State())

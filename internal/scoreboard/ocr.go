@@ -22,48 +22,71 @@ const ocrPollInterval = 200 * time.Millisecond
 const ocrTimeout = 800 * time.Millisecond
 const ocrBodyLimit = 256 * 1024
 
-var errOCRFollowing = errors.New("take manual control before changing the match clock")
+var errOCRFollowing = errors.New("take manual control of the OCR-controlled field first")
 var ocrClockPattern = regexp.MustCompile(`^[0-9]{1,5}:[0-9]{2}$`)
+var ocrNumberPattern = regexp.MustCompile(`^[0-9]{1,4}$`)
+var ocrTargets = []string{"main", "shot", "home_score", "away_score"}
+var ocrSuggestions = map[string]string{"main": "Time", "shot": "Shot Clock", "home_score": "Home Score", "away_score": "Away Score"}
+var ocrLabels = map[string]string{"main": "Match clock", "shot": "Shot clock", "home_score": "Home score", "away_score": "Away score"}
 
-// Only settings persist. Connection, observations and ownership always start off.
+// Only settings persist. An explicit empty mapping disables auto-suggestion.
+// Field retains compatibility with test.9 settings and mirrors the main mapping.
 type OCRSettings struct {
-	Address string `json:"address"`
-	Field   string `json:"field"`
+	Address  string            `json:"address"`
+	Field    string            `json:"field,omitempty"`
+	Mappings map[string]string `json:"mappings,omitempty"`
 }
-
+type OCRTargetSnapshot struct {
+	Field            string `json:"field"`
+	Following        bool   `json:"following"`
+	Reading          string `json:"reading"`
+	Recognized       string `json:"recognized"`
+	DetectionState   string `json:"detection_state"`
+	LastAccepted     string `json:"last_accepted"`
+	CanFollow        bool   `json:"can_follow"`
+	ValueChangeAgeMS int64  `json:"value_change_age_ms"`
+	Warning          string `json:"warning"`
+}
 type OCRSnapshot struct {
-	Address          string   `json:"address"`
-	Field            string   `json:"field"`
-	Fields           []string `json:"fields"`
-	Following        bool     `json:"following"`
-	Connection       string   `json:"connection"`
-	Reading          string   `json:"reading"`
-	Recognized       string   `json:"recognized"`
-	DetectionState   string   `json:"detection_state"`
-	LastAccepted     string   `json:"last_accepted"`
-	CanFollow        bool     `json:"can_follow"`
-	ResponseAgeMS    int64    `json:"response_age_ms"`
-	ValueChangeAgeMS int64    `json:"value_change_age_ms"`
-	Freshness        string   `json:"freshness"`
-	Warning          string   `json:"warning"`
+	// Legacy main aliases keep the test.9 read API compatible.
+	OCRTargetSnapshot
+	Address           string                       `json:"address"`
+	Fields            []string                     `json:"fields"`
+	Connection        string                       `json:"connection"`
+	ResponseAgeMS     int64                        `json:"response_age_ms"`
+	Freshness         string                       `json:"freshness"`
+	ConnectionWarning string                       `json:"connection_warning"`
+	Targets           map[string]OCRTargetSnapshot `json:"targets"`
 }
-
-type ocrRuntime struct {
-	OCRSnapshot
-	active     bool
-	generation uint64
+type ocrTargetRuntime struct {
+	OCRTargetSnapshot
+	configured bool
+	revision   uint64
 	valid      bool
-	seconds    int
-	responseAt time.Time
+	value      int
 	changedAt  time.Time
 }
+type ocrRuntime struct {
+	Address    string
+	Fields     []string
+	Connection string
+	warning    string
+	targets    map[string]*ocrTargetRuntime
+	active     bool
+	generation uint64
+	responseAt time.Time
+}
+type ocrTicket struct {
+	generation uint64
+	revisions  map[string]uint64
+}
 
-// ScoreSight 0.4.3 /json is an array, including rejected/empty detections.
-// Neither this response nor its HTTP Date proves source/detection freshness.
+// ScoreSight 0.4.3 exposes no source/detection timestamp in /json.
 type scoreSightResult struct {
-	Name  string `json:"name"`
-	Text  string `json:"text"`
-	State string `json:"state"`
+	Name      string `json:"name"`
+	Text      string `json:"text"`
+	State     string `json:"state"`
+	Malformed bool   `json:"-"`
 }
 
 func normalizeScoreSight(address string) (string, error) {
@@ -112,46 +135,123 @@ func parseOCRClock(text string) (int, error) {
 	return minutes*60 + seconds, nil
 }
 
+func parseOCRValue(target, text string) (int, error) {
+	if target == "main" {
+		return parseOCRClock(text)
+	}
+	if target == "shot" && strings.Contains(text, ":") {
+		value, err := parseOCRClock(text)
+		if err == nil && value <= 3600 {
+			return value, nil
+		}
+		return 0, errors.New("expected seconds or MM:SS, at most 3600 seconds")
+	}
+	limit := 999
+	if target == "shot" {
+		limit = 3600
+	}
+	value, err := strconv.Atoi(text)
+	if !ocrNumberPattern.MatchString(text) || err != nil || value > limit || (target != "shot" && len(text) > 3) {
+		return 0, fmt.Errorf("expected a whole number from 0 to %d", limit)
+	}
+	return value, nil
+}
+func cloneOCRSettings(s *OCRSettings) *OCRSettings {
+	if s == nil {
+		return nil
+	}
+	c := *s
+	c.Mappings = map[string]string{}
+	for k, v := range s.Mappings {
+		c.Mappings[k] = v
+	}
+	return &c
+}
 func newOCRRuntime(settings *OCRSettings) ocrRuntime {
-	view := OCRSnapshot{Address: defaultScoreSight, Fields: []string{}, Connection: "disconnected", Reading: "not_checked", Freshness: "unavailable"}
+	o := ocrRuntime{Address: defaultScoreSight, Fields: []string{}, Connection: "disconnected", targets: map[string]*ocrTargetRuntime{}}
 	if settings != nil {
-		view.Address, view.Field = settings.Address, settings.Field
-		if normalized, err := normalizeScoreSight(view.Address); err == nil {
-			view.Address = normalized
+		o.Address = settings.Address
+		if n, e := normalizeScoreSight(o.Address); e == nil {
+			o.Address = n
 		}
 	}
-	return ocrRuntime{OCRSnapshot: view}
+	for _, target := range ocrTargets {
+		t := &ocrTargetRuntime{OCRTargetSnapshot: OCRTargetSnapshot{Reading: "unconfigured"}}
+		if settings != nil {
+			t.Field, t.configured = settings.Mappings[target]
+			if target == "main" && !t.configured && settings.Field != "" {
+				t.Field, t.configured = settings.Field, true
+			}
+		}
+		if t.Field != "" {
+			t.Reading = "not_checked"
+		}
+		o.targets[target] = t
+	}
+	return o
 }
-
+func (a *App) ocrFollowingLocked(target string) bool {
+	t := a.ocr.targets[target]
+	return t != nil && t.Following
+}
+func (a *App) ocrGuardLocked(target string) error {
+	if target == "both" {
+		if a.ocrFollowingLocked("main") || a.ocrFollowingLocked("shot") {
+			return fmt.Errorf("both clocks unchanged: %w before using combined clock controls", errOCRFollowing)
+		}
+	} else if a.ocrFollowingLocked(target) {
+		return fmt.Errorf("%s: %w", ocrLabels[target], errOCRFollowing)
+	}
+	return nil
+}
 func (a *App) ocrSnapshotLocked(now time.Time) OCRSnapshot {
-	v := a.ocr.OCRSnapshot
-	v.Fields = append([]string{}, v.Fields...)
-	v.ResponseAgeMS, v.ValueChangeAgeMS = -1, -1
+	v := OCRSnapshot{Address: a.ocr.Address, Fields: append([]string{}, a.ocr.Fields...), Connection: a.ocr.Connection, ResponseAgeMS: -1, Freshness: "unavailable", ConnectionWarning: a.ocr.warning, Targets: map[string]OCRTargetSnapshot{}}
 	if !a.ocr.responseAt.IsZero() {
 		v.ResponseAgeMS = now.Sub(a.ocr.responseAt).Milliseconds()
 	}
-	if !a.ocr.changedAt.IsZero() {
-		v.ValueChangeAgeMS = now.Sub(a.ocr.changedAt).Milliseconds()
-	}
-	v.CanFollow = a.ocr.active && a.ocr.valid && v.Connection == "connected" && v.ResponseAgeMS >= 0 && v.ResponseAgeMS < 2000
 	if v.Connection == "connected" && v.ResponseAgeMS >= 2000 {
-		v.Warning = "No recent response. Keeping the last match time."
-	} else if a.ocr.valid {
-		v.Warning = "ScoreSight provides no detection timestamp. Video freshness cannot be verified."
-		if v.ValueChangeAgeMS >= 3000 {
-			v.Warning = "Value unchanged: the source may be paused or stale. Check the ScoreSight video."
-		}
+		v.ConnectionWarning = "No recent response. Keeping the last accepted values."
 	}
+	for _, target := range ocrTargets {
+		t := a.ocr.targets[target]
+		view := t.OCRTargetSnapshot
+		view.ValueChangeAgeMS = -1
+		if !t.changedAt.IsZero() {
+			view.ValueChangeAgeMS = now.Sub(t.changedAt).Milliseconds()
+		}
+		view.CanFollow = a.ocr.active && t.valid && v.Connection == "connected" && v.ResponseAgeMS >= 0 && v.ResponseAgeMS < 2000
+		if t.valid && view.ValueChangeAgeMS >= 3000 {
+			view.Warning = "Value unchanged: the source may be paused or stale."
+		}
+		v.Targets[target] = view
+	}
+	v.OCRTargetSnapshot = v.Targets["main"]
 	return v
 }
-
 func (a *App) wakeOCRLocked() {
 	select {
 	case a.ocrWake <- struct{}{}:
 	default:
 	}
 }
-
+func (a *App) ocrSettingsLocked() *OCRSettings {
+	s := &OCRSettings{Address: a.ocr.Address, Field: a.ocr.targets["main"].Field, Mappings: map[string]string{}}
+	for k, t := range a.ocr.targets {
+		if t.configured {
+			s.Mappings[k] = t.Field
+		}
+	}
+	return s
+}
+func (a *App) saveOCRSettingsLocked(s *OCRSettings) error {
+	c := a.cfg
+	c.OCR = s
+	if err := saveConfig(a.path, c); err != nil {
+		return err
+	}
+	a.cfg = c
+	return nil
+}
 func (a *App) ConnectOCR(address string) error {
 	address, err := normalizeScoreSight(address)
 	if err != nil {
@@ -159,141 +259,230 @@ func (a *App) ConnectOCR(address string) error {
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if a.ocr.Following {
-		return errOCRFollowing
+	for _, target := range ocrTargets {
+		if err := a.ocrGuardLocked(target); err != nil {
+			return err
+		}
 	}
 	settings := &OCRSettings{Address: address}
 	if address == a.ocr.Address {
-		settings.Field = a.ocr.Field
+		settings = a.ocrSettingsLocked()
 	}
-	c := a.cfg
-	c.OCR = settings
-	if err := saveConfig(a.path, c); err != nil {
+	if err := a.saveOCRSettingsLocked(settings); err != nil {
 		return err
 	}
-	a.cfg = c
 	generation := a.ocr.generation + 1
 	a.ocr = newOCRRuntime(settings)
-	a.ocr.active, a.ocr.generation = true, generation
-	a.ocr.Connection, a.ocr.Reading = "connecting", "waiting"
+	a.ocr.active, a.ocr.generation, a.ocr.Connection = true, generation, "connecting"
 	a.wakeOCRLocked()
 	return nil
 }
-
-func (a *App) SelectOCRField(field string) error {
+func (a *App) SelectOCRField(field string) error { return a.SelectOCRMapping("main", field) }
+func (a *App) SelectOCRMapping(target, field string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if a.ocr.Following {
-		return errOCRFollowing
+	t := a.ocr.targets[target]
+	if t == nil {
+		return errors.New("unknown OCR target")
 	}
-	found := false
+	if err := a.ocrGuardLocked(target); err != nil {
+		return err
+	}
+	found := field == ""
 	for _, name := range a.ocr.Fields {
 		if name == field {
 			found = true
 		}
 	}
-	if !found || field == "" {
+	if !found {
 		return errors.New("choose a field returned by ScoreSight")
 	}
+	settings := a.ocrSettingsLocked()
+	settings.Mappings[target] = field
+	if target == "main" {
+		settings.Field = field
+	}
+	if err := a.saveOCRSettingsLocked(settings); err != nil {
+		return err
+	}
+	revision := t.revision + 1
+	*t = ocrTargetRuntime{configured: true, revision: revision, OCRTargetSnapshot: OCRTargetSnapshot{Field: field, Reading: "waiting"}}
+	if field == "" {
+		t.Reading = "unconfigured"
+	}
+	a.wakeOCRLocked()
+	return nil
+}
+func (a *App) FollowOCR() error { return a.FollowOCRTarget("main") }
+func (a *App) FollowOCRTarget(target string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	t := a.ocr.targets[target]
+	if t == nil {
+		return errors.New("unknown OCR target")
+	}
+	if !a.ocrSnapshotLocked(time.Now()).Targets[target].CanFollow {
+		return errors.New("connect and wait for a valid reading before following this field")
+	}
+	if err := a.applyOCRValueLocked(target, t.value); err != nil {
+		return err
+	}
+	t.Following = true
+	t.revision++
+	a.wakeOCRLocked()
+	return nil
+}
+func (a *App) TakeManualControl() { _ = a.TakeOCRManual("main") }
+func (a *App) TakeOCRManual(target string) error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	t := a.ocr.targets[target]
+	if t == nil {
+		return errors.New("unknown OCR target")
+	}
+	if t.Following {
+		t.Following = false
+		if target == "main" {
+			a.main.State, a.main.Anchor = "paused", time.Time{}
+		}
+		if target == "shot" {
+			a.shot.State, a.shot.Anchor = "paused", time.Time{}
+		}
+	}
+	t.revision++
+	return nil
+}
+func (a *App) applyOCRValueLocked(target string, value int) error {
+	if target == "main" || target == "shot" {
+		clock := &a.main
+		if target == "shot" {
+			clock = &a.shot
+		}
+		clock.Base = time.Duration(value) * time.Second
+		clock.State, clock.Anchor = "paused", time.Time{}
+		return nil
+	}
 	c := a.cfg
-	c.OCR = &OCRSettings{Address: a.ocr.Address, Field: field}
+	if target == "home_score" {
+		if c.HomeScore == value {
+			return nil
+		}
+		c.HomeScore = value
+	} else {
+		if c.AwayScore == value {
+			return nil
+		}
+		c.AwayScore = value
+	}
+	// Persist score changes only, never identical reads at polling frequency.
 	if err := saveConfig(a.path, c); err != nil {
 		return err
 	}
 	a.cfg = c
-	a.ocr.Field, a.ocr.valid = field, false
-	a.ocr.Recognized, a.ocr.DetectionState, a.ocr.LastAccepted = "", "", ""
-	a.ocr.Reading, a.ocr.Warning = "waiting", "Waiting for the selected field."
-	a.ocr.changedAt = time.Time{}
-	a.ocr.generation++
-	a.wakeOCRLocked()
 	return nil
 }
 
-func (a *App) FollowOCR() error {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if !a.ocrSnapshotLocked(time.Now()).CanFollow {
-		return errors.New("connect and wait for a valid MM:SS reading before following OCR")
+// Each request captures per-target revisions. Taking over one field invalidates
+// its in-flight observation without dropping valid updates for other targets.
+func (a *App) ocrTicketLocked() ocrTicket {
+	ticket := ocrTicket{generation: a.ocr.generation, revisions: map[string]uint64{}}
+	for k, t := range a.ocr.targets {
+		ticket.revisions[k] = t.revision
 	}
-	a.ocr.Following = true
-	a.ocr.generation++ // An older in-flight result cannot cross ownership changes.
-	a.applyOCRClockLocked()
-	a.wakeOCRLocked()
-	return nil
+	return ticket
 }
-
-func (a *App) TakeManualControl() {
+func (a *App) acceptOCR(ticket ocrTicket, results []scoreSightResult, fetchErr error, now time.Time) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if a.ocr.Following {
-		a.ocr.Following = false
-		a.main.State, a.main.Anchor = "paused", time.Time{}
-	}
-	a.ocr.generation++
-}
-
-func (a *App) applyOCRClockLocked() {
-	// Do not Set/Start, change configured duration/direction, or extrapolate time.
-	a.main.Base = time.Duration(a.ocr.seconds) * time.Second
-	a.main.State, a.main.Anchor = "paused", time.Time{}
-}
-
-func (a *App) acceptOCR(generation uint64, results []scoreSightResult, fetchErr error, now time.Time) {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	if generation != a.ocr.generation || !a.ocr.active {
+	if ticket.generation != a.ocr.generation || !a.ocr.active {
 		return
 	}
-	a.ocr.valid = false
 	if fetchErr != nil {
-		a.ocr.Connection, a.ocr.Reading = "error", "unavailable"
-		a.ocr.Warning = fetchErr.Error() + " Keeping the last match time."
-		return
-	}
-	a.ocr.Connection, a.ocr.responseAt = "connected", now
-	fields := []string{}
-	for _, result := range results {
-		fields = append(fields, result.Name)
-	}
-	sort.Strings(fields)
-	a.ocr.Fields = fields
-	if a.ocr.Field == "" && len(fields) > 0 {
-		a.ocr.Field = fields[0]
-		for _, field := range fields {
-			if field == "Time" {
-				a.ocr.Field = field
+		a.ocr.Connection, a.ocr.warning = "error", fetchErr.Error()+" Keeping the last accepted values."
+		for k, t := range a.ocr.targets {
+			if ticket.revisions[k] == t.revision {
+				t.valid = false
+				t.Reading = "unavailable"
+				t.Warning = "No reading available. Keeping the displayed value."
 			}
 		}
-	}
-	a.ocr.Recognized, a.ocr.DetectionState = "", ""
-	a.ocr.Reading, a.ocr.Warning = "missing", "Selected field is missing. Keeping the last match time."
-	for _, result := range results {
-		if result.Name != a.ocr.Field {
-			continue
-		}
-		a.ocr.Recognized, a.ocr.DetectionState = result.Text, result.State
-		if result.State != "Success" && result.State != "SameNoChange" {
-			a.ocr.Reading, a.ocr.Warning = "rejected", "ScoreSight rejected or emptied this reading. Keeping the last match time."
-			return
-		}
-		seconds, err := parseOCRClock(result.Text)
-		if err != nil {
-			a.ocr.Reading, a.ocr.Warning = "malformed", "Reading is not a valid MM:SS time. Keeping the last match time."
-			return
-		}
-		if a.ocr.LastAccepted == "" || seconds != a.ocr.seconds {
-			a.ocr.changedAt = now
-		}
-		a.ocr.seconds, a.ocr.valid = seconds, true
-		a.ocr.LastAccepted, a.ocr.Reading = result.Text, "accepted"
-		if a.ocr.Following {
-			a.applyOCRClockLocked()
-		}
 		return
 	}
+	a.ocr.Connection, a.ocr.responseAt, a.ocr.warning = "connected", now, ""
+	byName := map[string]scoreSightResult{}
+	for _, r := range results {
+		if _, duplicate := byName[r.Name]; duplicate {
+			r.Malformed = true
+		}
+		byName[r.Name] = r
+	}
+	a.ocr.Fields = []string{}
+	for name := range byName {
+		a.ocr.Fields = append(a.ocr.Fields, name)
+	}
+	sort.Strings(a.ocr.Fields)
+	for _, target := range ocrTargets {
+		t := a.ocr.targets[target]
+		if ticket.revisions[target] != t.revision {
+			continue
+		}
+		t.valid = false
+		if !t.configured {
+			if _, exists := byName[ocrSuggestions[target]]; exists {
+				settings := a.ocrSettingsLocked()
+				settings.Mappings[target] = ocrSuggestions[target]
+				if target == "main" {
+					settings.Field = ocrSuggestions[target]
+				}
+				if err := a.saveOCRSettingsLocked(settings); err != nil {
+					t.Reading = "save_error"
+					t.Warning = "Could not save suggested mapping."
+					continue
+				}
+				t.Field, t.configured = ocrSuggestions[target], true
+			}
+		}
+		t.Recognized, t.DetectionState, t.Warning = "", "", ""
+		if t.Field == "" {
+			t.Reading = "unconfigured"
+			continue
+		}
+		r, exists := byName[t.Field]
+		if !exists {
+			t.Reading = "missing"
+			t.Warning = "Selected field is missing. Keeping the displayed value."
+			continue
+		}
+		t.Recognized, t.DetectionState = r.Text, r.State
+		if r.Malformed {
+			t.Reading = "malformed"
+			t.Warning = "Malformed or duplicate source field. Keeping the displayed value."
+			continue
+		}
+		if r.State != "Success" && r.State != "SameNoChange" {
+			t.Reading = "rejected"
+			t.Warning = "Reading rejected or empty. Keeping the displayed value."
+			continue
+		}
+		value, err := parseOCRValue(target, r.Text)
+		if err != nil {
+			t.Reading = "malformed"
+			t.Warning = err.Error() + ". Keeping the displayed value."
+			continue
+		}
+		if t.Following {
+			if err := a.applyOCRValueLocked(target, value); err != nil {
+				t.Reading = "save_error"
+				t.Warning = "Could not save score. Keeping the displayed value."
+				continue
+			}
+		}
+		if t.LastAccepted == "" || value != t.value {
+			t.changedAt = now
+		}
+		t.value, t.valid, t.LastAccepted, t.Reading = value, true, r.Text, "accepted"
+	}
 }
-
 func fetchScoreSight(ctx context.Context, client *http.Client, address string) ([]scoreSightResult, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, address+"/json", nil)
 	if err != nil {
@@ -313,16 +502,33 @@ func fetchScoreSight(ctx context.Context, client *http.Client, address string) (
 	if err != nil || len(data) > ocrBodyLimit {
 		return nil, errors.New("ScoreSight response is incomplete or too large.")
 	}
-	var results []scoreSightResult
-	if err := json.Unmarshal(data, &results); err != nil || results == nil || len(results) > 256 {
+	var entries []json.RawMessage
+	if err := json.Unmarshal(data, &entries); err != nil || entries == nil || len(entries) > 256 {
 		return nil, errors.New("ScoreSight returned an invalid results array.")
 	}
-	seen := map[string]bool{}
-	for _, result := range results {
-		if result.Name == "" || !validOCRField(result.Name) || len(result.Text) > 256 || len(result.State) > 64 || seen[result.Name] {
-			return nil, errors.New("ScoreSight returned invalid or duplicate fields.")
+	// A corrupt or duplicate field must not prevent other fields from updating.
+	results := []scoreSightResult{}
+	indices := map[string]int{}
+	for _, entry := range entries {
+		var name struct {
+			Name string `json:"name"`
 		}
-		seen[result.Name] = true
+		if json.Unmarshal(entry, &name) != nil || name.Name == "" || !validOCRField(name.Name) {
+			continue
+		}
+		var result scoreSightResult
+		err := json.Unmarshal(entry, &result)
+		result.Name = name.Name
+		result.Malformed = err != nil || len(result.Text) > 256 || len(result.State) > 64
+		if result.Malformed {
+			result.Text, result.State = "", ""
+		}
+		if i, exists := indices[result.Name]; exists {
+			results[i].Malformed = true
+			continue
+		}
+		indices[result.Name] = len(results)
+		results = append(results, result)
 	}
 	return results, nil
 }
@@ -344,13 +550,13 @@ func (a *App) RunOCR(ctx context.Context) {
 			case <-a.ocrWake:
 			}
 			a.mu.Lock()
-			active, address, generation := a.ocr.active, a.ocr.Address, a.ocr.generation
+			active, address, ticket := a.ocr.active, a.ocr.Address, a.ocrTicketLocked()
 			a.mu.Unlock()
 			if !active {
 				continue
 			}
 			results, err := fetchScoreSight(ctx, client, address)
-			a.acceptOCR(generation, results, err, time.Now())
+			a.acceptOCR(ticket, results, err, time.Now())
 		}
 	})
 }

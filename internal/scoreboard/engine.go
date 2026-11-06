@@ -99,10 +99,14 @@ func (a *App) State() Snapshot {
 		}
 	}
 	main := cs(&a.main, a.cfg.Layout.MainClockFormat)
-	if a.ocr.Following {
+	if a.ocrFollowingLocked("main") {
 		main.State = "ocr"
 	}
-	return Snapshot{Version: Version, HomeName: a.cfg.HomeName, AwayName: a.cfg.AwayName, HomeScore: a.cfg.HomeScore, AwayScore: a.cfg.AwayScore, HomeFouls: a.cfg.HomeFouls, AwayFouls: a.cfg.AwayFouls, Period: a.cfg.Period, PeriodLabel: periodLabel, PeriodOvertime: a.cfg.PeriodOvertime, ShotAutoHide: a.cfg.ShotAutoHide, ShotVisible: shotVisible, Main: main, Shot: cs(&a.shot, a.cfg.Layout.ShotClockFormat), Layout: cloneLayout(a.cfg.Layout), Listen: a.cfg.Listen, ActiveListen: a.activeListen, RestartRequired: a.cfg.Listen != a.activeListen, OCR: a.ocrSnapshotLocked(now)}
+	shot := cs(&a.shot, a.cfg.Layout.ShotClockFormat)
+	if a.ocrFollowingLocked("shot") {
+		shot.State = "ocr"
+	}
+	return Snapshot{Version: Version, HomeName: a.cfg.HomeName, AwayName: a.cfg.AwayName, HomeScore: a.cfg.HomeScore, AwayScore: a.cfg.AwayScore, HomeFouls: a.cfg.HomeFouls, AwayFouls: a.cfg.AwayFouls, Period: a.cfg.Period, PeriodLabel: periodLabel, PeriodOvertime: a.cfg.PeriodOvertime, ShotAutoHide: a.cfg.ShotAutoHide, ShotVisible: shotVisible, Main: main, Shot: shot, Layout: cloneLayout(a.cfg.Layout), Listen: a.cfg.Listen, ActiveListen: a.activeListen, RestartRequired: a.cfg.Listen != a.activeListen, OCR: a.ocrSnapshotLocked(now)}
 }
 
 // RotateToken atomically persists a fresh API token and immediately invalidates
@@ -137,10 +141,7 @@ func (a *App) Config() Config {
 	defer a.mu.Unlock()
 	c := a.cfg
 	c.Layout = cloneLayout(c.Layout)
-	if c.OCR != nil {
-		settings := *c.OCR
-		c.OCR = &settings
-	}
+	c.OCR = cloneOCRSettings(c.OCR)
 	return c
 }
 func (a *App) updateConfig(fn func(*Config) error) error {
@@ -159,6 +160,9 @@ func (a *App) updateConfig(fn func(*Config) error) error {
 }
 func (a *App) UpdateGame(field string, value json.RawMessage) error {
 	return a.updateConfig(func(c *Config) error {
+		if err := a.ocrGuardLocked(field); err != nil {
+			return err
+		}
 		switch field {
 		case "home_name", "away_name":
 			var n string
@@ -212,6 +216,9 @@ func (a *App) AdjustScore(field string, delta int) error {
 		return errors.New("adjustment must be -50 to +50, nonzero")
 	}
 	return a.updateConfig(func(c *Config) error {
+		if err := a.ocrGuardLocked(field); err != nil {
+			return err
+		}
 		switch field {
 		case "home_score":
 			c.HomeScore += delta
@@ -231,6 +238,11 @@ func (a *App) AdjustScore(field string, delta int) error {
 }
 func (a *App) GameReset() error {
 	return a.updateConfig(func(c *Config) error {
+		for _, target := range []string{"home_score", "away_score"} {
+			if err := a.ocrGuardLocked(target); err != nil {
+				return err
+			}
+		}
 		c.HomeScore = 0
 		c.AwayScore = 0
 		c.HomeFouls = 0
@@ -255,8 +267,8 @@ func (a *App) SetClock(which string, seconds int, dir string) error {
 func (a *App) updateConfigWithClock(which string, seconds int, dir string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if which == "main" && a.ocr.Following {
-		return errOCRFollowing
+	if err := a.ocrGuardLocked(which); err != nil {
+		return err
 	}
 	c := a.cfg
 	if which == "main" {
@@ -296,8 +308,8 @@ func (a *App) resumeShotWithMatchLocked(now time.Time) {
 func (a *App) ClockAction(which, action string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if a.ocr.Following && (which == "main" || which == "both") {
-		return errOCRFollowing
+	if err := a.ocrGuardLocked(which); err != nil {
+		return err
 	}
 	if which == "both" {
 		if action == "pause" || action == "stop" {
@@ -332,8 +344,8 @@ func (a *App) ClockAction(which, action string) error {
 func (a *App) AdjustClock(which string, seconds int) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	if which == "main" && a.ocr.Following {
-		return errOCRFollowing
+	if err := a.ocrGuardLocked(which); err != nil {
+		return err
 	}
 	if which == "main" {
 		return a.main.Adjust(seconds)
