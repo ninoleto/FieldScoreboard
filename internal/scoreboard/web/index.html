@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Field Scoreboard — Live Sports Graphics</title><link rel="icon" href="/favicon.ico"><link rel="stylesheet" href="/app.css"><script src="/render.js" defer></script><script src="/background.js" defer></script><script src="/app.js" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Field Scoreboard — Live Sports Graphics</title><link rel="icon" href="/favicon.ico"><link rel="stylesheet" href="/app.css"><script src="/render.js" defer></script><script src="/background.js" defer></script><script src="/ocr.js" defer></script><script src="/app.js" defer></script></head>
 <body>
 <div class="app-shell">
 <header class="site-header">
  <div class="brand"><span class="brand-logo">FS</span><div><h1>Field Scoreboard</h1><p>Live sports scoring · Custom graphics · OBS ready</p></div></div>
- <div class="header-actions"><span class="connection" id="connected"><span class="connection-dot"></span><span id="connectionLabel">Connecting</span></span><span class="version">v0.1.0-test.8</span><button id="openOverlay" class="subtle-button">Open clean overlay <span aria-hidden="true">↗</span></button></div>
+ <div class="header-actions"><span class="connection" id="connected"><span class="connection-dot"></span><span id="connectionLabel">Connecting</span></span><span class="version">v0.1.0-test.9</span><button id="openOverlay" class="subtle-button">Open clean overlay <span aria-hidden="true">↗</span></button></div>
 </header>
 <div id="banner" class="banner hidden" role="alert"></div>
 <div id="authGate" class="auth-gate hidden"><div class="auth-card"><h2>Connect to Field Scoreboard</h2><p>For access from another computer, enter the API token from the scoreboard host.</p><form id="authForm"><label>API token<input type="password" id="authToken" required autocomplete="off"></label><button class="primary">Connect</button></form></div></div>
@@ -24,6 +24,17 @@
    <div class="team-group away"><label class="field-label" for="awayName">AWAY TEAM</label><input id="awayName" maxlength="32" value="AWAY"><div class="score-foul-row"><fieldset class="number-group"><legend id="awayScoreLabel">Away score</legend><div class="value-stepper"><button type="button" data-adjust="away_score:-1" aria-label="Subtract one away score">−</button><button type="button" class="numeric-value" id="awayScore" data-exact="away_score" aria-labelledby="awayScoreLabel awayScore" aria-describedby="exactValueHelp" title="Click to set exact value">0</button><button type="button" class="plus-goal" data-adjust="away_score:1" aria-label="Add one away score">+</button></div></fieldset><fieldset class="number-group"><legend id="awayFoulsLabel">Away fouls</legend><div class="value-stepper"><button type="button" data-adjust="away_fouls:-1" aria-label="Subtract one away foul">−</button><button type="button" class="numeric-value" id="awayFouls" data-exact="away_fouls" aria-labelledby="awayFoulsLabel awayFouls" aria-describedby="exactValueHelp" title="Click to set exact value">0</button><button type="button" data-adjust="away_fouls:1" aria-label="Add one away foul">+</button></div></fieldset></div></div>
   <p class="hint-exact" id="exactValueHelp">Tip: click any score, foul count or period number to enter an exact value.</p></div>
  </div>
+ <section class="card ocr-card" aria-labelledby="ocrHeading">
+  <div class="card-heading"><h3 id="ocrHeading">ScoreSight OCR — match clock</h3><span class="badge-soft" id="ocrMode">MANUAL</span></div>
+  <p>Use a recognised MM:SS field for the match clock only. Scores, fouls, period and shot clock stay under manual control.</p>
+  <div class="ocr-settings"><label for="ocrAddress">ScoreSight address<input id="ocrAddress" type="url" value="http://127.0.0.1:18099" spellcheck="false" autocomplete="off" aria-describedby="ocrAddressHelp"></label><button type="button" id="ocrConnect" class="primary">Connect / Check connection</button><label>Match clock field<select id="ocrField"><option value="">Connect to discover fields</option></select></label></div>
+  <p class="note" id="ocrAddressHelp">Use the address on the Field Scoreboard computer, or a private LAN IP. The connection is made by Field Scoreboard.</p>
+  <div class="ocr-readings"><div><span>Recognised value</span><output id="ocrRecognized">—</output></div><div><span>Last accepted OCR value</span><output id="ocrAccepted">—</output></div></div>
+  <p id="ocrConnection" role="status">Not connected</p><p id="ocrReadingStatus" role="status">Not checked</p>
+  <p id="ocrWarning" role="status">Connect to inspect readings. Only Follow OCR clock changes the match time.</p><p class="note" id="ocrAge">Video freshness cannot be verified from this ScoreSight endpoint.</p>
+  <div class="ocr-actions"><button type="button" id="ocrFollow" class="green-button" aria-pressed="false">Follow OCR clock</button><button type="button" id="ocrManual">Take manual control</button></div>
+  <p class="note" id="ocrManualHelp">Manual takeover keeps the displayed time paused until you start it.</p>
+ </section>
  <section class="card both-clocks" aria-labelledby="bothClocksHeading">
   <h3 id="bothClocksHeading">Both clocks</h3>
   <p>Start or pause the match clock and shot clock together. Their current times are kept.</p>
@@ -126,7 +137,7 @@
   <div class="builder-actions"><button id="loadBuilderToken" type="button" class="outline">Load local API token</button><button id="copyBuilderAll" type="button" class="primary">Copy full request</button><button id="testBuilderRequest" type="button" class="outline">Test request</button></div>
   <details class="companion-guide"><summary>Beginner guide — setup Bitfocus Companion</summary><ol><li>Under Output &amp; network enable LAN access, save and restart Field Scoreboard. Allow port 8790 on your trusted Private network only.</li><li>In Companion add <strong>Generic HTTP Requests</strong>. Keep Base URL blank.</li><li>Select the correct network adapter, use its IP in the Builder and click <strong>Load local API token</strong> on the Scoreboard computer.</li><li>Pick a command. Copy Method, URL, JSON Body (if present) and Headers into the corresponding Companion button fields.</li><li>Test the action. If you get ECONNREFUSED, check restart, LAN IP and firewall. If HTTP 401, check the token.</li></ol></details>
  </section>
- <section class="card roadmap"><h3>OCR integration — future stage</h3><p>This version operates manually. A future optional ScoreSight connector may read scoreboard camera feeds with confidence filtering and immediate manual override. No paid tools or OCR are required to run this application.</p></section>
+ <section class="card roadmap"><h3>Optional ScoreSight connection</h3><p>Connect a recognised MM:SS field under Live control → ScoreSight OCR. This local test build follows the match clock only. Other OCR fields and automatic sport rules are not implemented.</p></section>
 </section>
 <dialog id="touchChoiceDialog" class="touch-choice-dialog" aria-labelledby="touchChoiceHeading"><div class="touch-choice-header"><strong id="touchChoiceHeading">Choose option</strong><button id="touchChoiceClose" type="button" class="outline" aria-label="Close selection menu">Close ✕</button></div><div id="touchChoiceList" class="touch-choice-list" role="listbox" aria-labelledby="touchChoiceHeading"></div></dialog>
 <footer>Field Scoreboard · Free &amp; open source · Windows &amp; Linux · Independent from Field Timer</footer>

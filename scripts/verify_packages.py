@@ -48,7 +48,7 @@ for entry in manifest:
                     assert data[:6]==b'\x7fELF\x02\x01'
                     assert struct.unpack_from('<H',data,18)[0]==62
                     assert archive.getinfo(filename).external_attr>>16 & 0o111
-                for asset in ['app.js','app.css','index.html','background.js','render.js','overlay.css']:
+                for asset in ['app.js','app.css','index.html','background.js','ocr.js','render.js','overlay.css']:
                     assert (root/'internal/scoreboard/web'/asset).read_bytes() in data,(filename,asset)
             assert archive.read('README.md')==(root/'README.md').read_bytes()
             for doc in documentation_files(root):

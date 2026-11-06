@@ -21,6 +21,7 @@
  }
  async function action(path,body){if(opBusy)return;opBusy=true;try{const response=await api(path,'POST',body);s=response;draw();return true}catch(err){message(err.message);return false}finally{opBusy=false}}
  async function poll(){if(pollBusy||opBusy||layoutSaveBusy)return;pollBusy=true;try{s=await api('/api/state');$('connected').classList.add('ok');$('connected').classList.remove('bad');$('connectionLabel').textContent='Connected';draw()}catch(err){$('connected').classList.add('bad');$('connected').classList.remove('ok');$('connectionLabel').textContent='Offline';if(!String(err).includes('token'))message(err.message)}finally{pollBusy=false}}
+ const ocrControls=window.FieldOCRControls.create({api,apply:state=>{s=state;draw()},message});
  function draw(){
   if(!s)return;
   stage.paint($('previewStage'),s,s.layout,null);stage.scale($('previewStage'));
@@ -47,6 +48,7 @@
   const port=(s.active_listen||s.listen).split(':').pop();$('overlayUrl').textContent=`http://127.0.0.1:${port}/overlay`;
   updateBuilder();
   backgroundEditor?.sync();
+  ocrControls.sync(s);
   window.refreshTouchOptions?.();
  }
  const pageNames={control:'Live control',editor:'Layout editor',setup:'Output & API'};

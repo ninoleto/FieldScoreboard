@@ -23,24 +23,25 @@ type ClockState struct {
 	RemainingSeconds float64 `json:"remaining_seconds"`
 }
 type Snapshot struct {
-	Version         string     `json:"version"`
-	HomeName        string     `json:"home_name"`
-	AwayName        string     `json:"away_name"`
-	HomeScore       int        `json:"home_score"`
-	AwayScore       int        `json:"away_score"`
-	HomeFouls       int        `json:"home_fouls"`
-	AwayFouls       int        `json:"away_fouls"`
-	Period          int        `json:"period"`
-	PeriodOvertime  bool       `json:"period_overtime"`
-	PeriodLabel     string     `json:"period_label"`
-	ShotAutoHide    bool       `json:"shot_auto_hide"`
-	ShotVisible     bool       `json:"shot_visible"`
-	ActiveListen    string     `json:"active_listen"`
-	RestartRequired bool       `json:"restart_required"`
-	Main            ClockState `json:"main"`
-	Shot            ClockState `json:"shot"`
-	Layout          Layout     `json:"layout"`
-	Listen          string     `json:"listen"`
+	Version         string      `json:"version"`
+	HomeName        string      `json:"home_name"`
+	AwayName        string      `json:"away_name"`
+	HomeScore       int         `json:"home_score"`
+	AwayScore       int         `json:"away_score"`
+	HomeFouls       int         `json:"home_fouls"`
+	AwayFouls       int         `json:"away_fouls"`
+	Period          int         `json:"period"`
+	PeriodOvertime  bool        `json:"period_overtime"`
+	PeriodLabel     string      `json:"period_label"`
+	ShotAutoHide    bool        `json:"shot_auto_hide"`
+	ShotVisible     bool        `json:"shot_visible"`
+	ActiveListen    string      `json:"active_listen"`
+	RestartRequired bool        `json:"restart_required"`
+	Main            ClockState  `json:"main"`
+	Shot            ClockState  `json:"shot"`
+	Layout          Layout      `json:"layout"`
+	Listen          string      `json:"listen"`
+	OCR             OCRSnapshot `json:"ocr"`
 }
 type App struct {
 	mu           sync.Mutex
@@ -49,13 +50,16 @@ type App struct {
 	activeListen string
 	main         Clock
 	shot         Clock
+	ocr          ocrRuntime
+	ocrWake      chan struct{}
+	ocrLoopOnce  sync.Once
 }
 
 func NewApp(cfg Config, path string) (*App, error) {
 	if err := ValidateConfig(cfg); err != nil {
 		return nil, err
 	}
-	return &App{cfg: cfg, path: path, activeListen: cfg.Listen, main: newClock(cfg.MainDuration, cfg.MainDirection), shot: newClock(cfg.ShotDuration, "down")}, nil
+	return &App{cfg: cfg, path: path, activeListen: cfg.Listen, main: newClock(cfg.MainDuration, cfg.MainDirection), shot: newClock(cfg.ShotDuration, "down"), ocr: newOCRRuntime(cfg.OCR), ocrWake: make(chan struct{}, 1)}, nil
 }
 func cloneLayout(l Layout) Layout {
 	if l.BackgroundTransform != nil {
@@ -94,7 +98,11 @@ func (a *App) State() Snapshot {
 			shotVisible = false
 		}
 	}
-	return Snapshot{Version: Version, HomeName: a.cfg.HomeName, AwayName: a.cfg.AwayName, HomeScore: a.cfg.HomeScore, AwayScore: a.cfg.AwayScore, HomeFouls: a.cfg.HomeFouls, AwayFouls: a.cfg.AwayFouls, Period: a.cfg.Period, PeriodLabel: periodLabel, PeriodOvertime: a.cfg.PeriodOvertime, ShotAutoHide: a.cfg.ShotAutoHide, ShotVisible: shotVisible, Main: cs(&a.main, a.cfg.Layout.MainClockFormat), Shot: cs(&a.shot, a.cfg.Layout.ShotClockFormat), Layout: cloneLayout(a.cfg.Layout), Listen: a.cfg.Listen, ActiveListen: a.activeListen, RestartRequired: a.cfg.Listen != a.activeListen}
+	main := cs(&a.main, a.cfg.Layout.MainClockFormat)
+	if a.ocr.Following {
+		main.State = "ocr"
+	}
+	return Snapshot{Version: Version, HomeName: a.cfg.HomeName, AwayName: a.cfg.AwayName, HomeScore: a.cfg.HomeScore, AwayScore: a.cfg.AwayScore, HomeFouls: a.cfg.HomeFouls, AwayFouls: a.cfg.AwayFouls, Period: a.cfg.Period, PeriodLabel: periodLabel, PeriodOvertime: a.cfg.PeriodOvertime, ShotAutoHide: a.cfg.ShotAutoHide, ShotVisible: shotVisible, Main: main, Shot: cs(&a.shot, a.cfg.Layout.ShotClockFormat), Layout: cloneLayout(a.cfg.Layout), Listen: a.cfg.Listen, ActiveListen: a.activeListen, RestartRequired: a.cfg.Listen != a.activeListen, OCR: a.ocrSnapshotLocked(now)}
 }
 
 // RotateToken atomically persists a fresh API token and immediately invalidates
@@ -129,6 +137,10 @@ func (a *App) Config() Config {
 	defer a.mu.Unlock()
 	c := a.cfg
 	c.Layout = cloneLayout(c.Layout)
+	if c.OCR != nil {
+		settings := *c.OCR
+		c.OCR = &settings
+	}
 	return c
 }
 func (a *App) updateConfig(fn func(*Config) error) error {
@@ -243,6 +255,9 @@ func (a *App) SetClock(which string, seconds int, dir string) error {
 func (a *App) updateConfigWithClock(which string, seconds int, dir string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if which == "main" && a.ocr.Following {
+		return errOCRFollowing
+	}
 	c := a.cfg
 	if which == "main" {
 		c.MainDuration = seconds
@@ -281,6 +296,9 @@ func (a *App) resumeShotWithMatchLocked(now time.Time) {
 func (a *App) ClockAction(which, action string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if a.ocr.Following && (which == "main" || which == "both") {
+		return errOCRFollowing
+	}
 	if which == "both" {
 		if action == "pause" || action == "stop" {
 			for _, c := range []*Clock{&a.main, &a.shot} {
@@ -314,6 +332,9 @@ func (a *App) ClockAction(which, action string) error {
 func (a *App) AdjustClock(which string, seconds int) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	if which == "main" && a.ocr.Following {
+		return errOCRFollowing
+	}
 	if which == "main" {
 		return a.main.Adjust(seconds)
 	}

@@ -19,6 +19,8 @@ Do not start two instances using the same configuration or listening port. A por
 
 ## Operating a match
 
+This branch adds an optional **ScoreSight OCR — match clock** panel in local test.9. Connect to discover actual fields, inspect the reading and choose **Follow OCR clock** explicitly. **Take manual control** retains the displayed time paused; then Start / Resume restores manual timing. Source failures keep the last accepted value. The endpoint does not prove video freshness, so heed its warnings. Match/combined controls are guarded while following; shot controls stay independent and shot resets remain Ready. See the [ScoreSight setup and limitations](OCR_PLAN.md). The manual behavior below applies when OCR is not following.
+
 **Live control** contains immediate score, foul, name and period updates. Scores allow 0–999, fouls 0–30 and periods 1–20. Tap a score/foul/period value, or focus it and press Enter/Space, for exact entry. OT changes only the displayed period label; turning it off restores the numeric period. Reset game clears scores, fouls and OT and returns the period to 1; use clock controls separately to reset timing.
 
 The match clock counts down or up; the shot clock counts down. They are independent. Each has Start, Pause, Stop, Reset and time corrections. **Both clocks → Start both / Pause both** starts or pauses them together without changing their current times.
@@ -110,6 +112,6 @@ There is **no automatic backup/export feature**. Stop the application, then copy
 
 ## Known limits and feedback
 
-This is an x64 preview, not a competition rules engine. Linux has no native tray, and OBS Browser Source availability depends on its installation. There is no OCR, NDI, direct OBS integration or dedicated live Companion feedback module. Timing displays can lag with browser/network load; rehearse before a broadcast.
+This is an x64 preview, not a competition rules engine. Linux has no native tray, and OBS Browser Source availability depends on its installation. Local test.9 includes a match-clock-only ScoreSight connector; other OCR mappings, NDI, direct OBS integration and dedicated live Companion feedback are absent. Timing displays can lag with browser/network load; rehearse before a broadcast.
 
 Report reproducible problems through [GitHub issues](https://github.com/ninoleto/FieldScoreboard/issues), including version, platform, launch mode and steps. Remove tokens, personal artwork and private configuration before attaching diagnostics. [Verification](VERIFICATION-v0.1.0-test.8.md) distinguishes automation from outstanding manual tests.

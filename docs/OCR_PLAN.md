@@ -1,31 +1,47 @@
-# Field Scoreboard — OCR integration research plan (NOT implemented in v0.1)
+# ScoreSight connection: current scope and future work
 
-## Purpose
+## Implemented in v0.1.0-test.9 (local development build)
 
-Read values from a physical sports scoreboard using an existing camera feed and update only selected fields: game time, shot/possession time, period, home/away points and fouls. Target sports include futsal, basketball, and water polo. Free, offline-capable tooling only.
+The first working connector follows **one match-clock field** from ScoreSight's read-only `GET /json` endpoint. It was checked against a running ScoreSight v0.4.3. This build is local-only; the published test.8 release is unchanged.
 
-## Candidate
+Under **Live control → ScoreSight OCR — match clock**:
 
-Evaluate the open-source [ScoreSight](https://github.com/royshil/scoresight) application before writing OCR from scratch. Validate actual availability of each supported video input, API schema, licence and device-shared capture on current releases before implementation. An operator may already use OBS with a dedicated scoreboard camera; avoid assuming multiple processes can open the same video capture device. Consider OBS's existing video routing where technically supported.
+1. Enter the ScoreSight address, default `http://127.0.0.1:18099`. This is relative to the Field Scoreboard server, not the browser/tablet. A private LAN IP is also supported.
+2. Choose **Connect / Check connection**. This starts monitoring without changing the match clock. The large field dialog lists actual returned fields and selects **Time** when available. Select a different field if needed.
+3. Inspect the recognised text, ScoreSight status and warnings. A valid `MM:SS` reading enables **Follow OCR clock**.
+4. Choose Follow explicitly. Accepted readings now supply the displayed match time; the internal clock does not advance between readings. Source time changes, pauses, resets and a valid `00:00` are reflected by subsequent readings.
+5. **Take manual control** immediately releases OCR ownership, keeps the displayed time and leaves the match clock paused. Start / Resume starts manual timing. Monitoring can continue, but it cannot change the clock until Follow is explicitly chosen again.
 
-## Input/output architecture
+Match/combined transport, Set and adjustment actions are blocked while following; use Take manual control first. Shot controls remain independent. Because this endpoint cannot prove the source's running state, shot reset/set stays Ready during OCR ownership; start the shot clock explicitly. Normal conditional shot-reset behavior returns in manual mode. Auto-hide uses the effective OCR match value (configured duration minus elapsed for count-up).
 
-`Dedicated scoreboard camera / local video feed` → `ScoreSight detection regions` → `validated event/HTTP snapshot` → `Field Scoreboard per-field inputs` → `one authoritative state` → `OBS transparent Browser Source`.
+Only the match clock is mapped. Unconfigured scores, fouls, names, period/OT and shot clock are untouched. The operator can still change those fields manually. Layouts/presets remain independent.
 
-The OCR service must never have exclusive ownership of the scoreboard's clocks. OCR provides observations and confidence; manual input must always be available, especially if video feed is unavailable or the scoreboard glitches.
+## Source contract and freshness
 
-## Technical requirements
+The observed and documented full JSON format is an array:
 
-- Per-field source mode: **Manual**, **OCR**, **OCR with manual override**. No global forced OCR mode.
-- A human can immediately force a field to manual, correcting a score without restarting the overlay.
-- Validate strict grammar (`MM:SS`, `SS`, digits); cap periods/scores/fouls to plausible values; reject garbage readings.
-- Use per-field stability thresholds (e.g., require repeated matching OCR samples for scores and fouls). Avoid introducing artificial delay on an actual game-clock reading; filter jitter based on game-clock direction and known expected progression.
-- Mark stale values when observations age out. Hold last confirmed value; never turn a missed read into zero or blank during a live game.
-- Handle shot clock reset (24/14/30) as an expected jump, but reject implausible sporadic jumps unless sustained/confirmed.
-- Debounce OCR values independently; provide OCR confidence and source status in the operator UI, **not in the OBS overlay** unless explicitly configured.
-- Camera setups: straight-on, manual exposure/shutter to reduce LED rolling refresh artifacts, locked focus, dedicated ROI selection per value.
-- No promise of 100% accuracy. Field test at real venues under changing lighting/LED refresh rates, collect opt-in test footage only.
+```json
+[{"name":"Time","text":"12:34","state":"SameNoChange","rect":{"x":1,"y":2,"width":100,"height":50}}]
+```
 
-## Validation plan
+Accept `Success` and `SameNoChange` only. Reject `FailedFilter`, `Empty`, unknown states and malformed time strings. Parsing accepts one to five minute digits and exactly two second digits, seconds 00–59, with a seven-day maximum. No decimal times, substitutions or guessed digits. A missing field, invalid payload, timeout or HTTP error keeps the last match time and shows a warning. Recovery resumes updates only if OCR still owns the clock.
 
-Run ScoreSight manually on a recorded scoreboard clip. Assess field-level recognition precision, clock latency, shot clock reliability, and false changes. Only then implement a bridge. Do not depend on additional licences, cloud APIs or external equipment.
+ScoreSight v0.4.3's observed `/json` responses supply **no detection timestamp, frame sequence or video heartbeat**. Its HTTP Date/no-cache headers and repeated `Success`/`SameNoChange` responses do not prove a live video feed. The panel therefore always identifies freshness as unverified. After three seconds without a value change it warns that the source may be paused or stale. That warning cannot distinguish an intentional pause from a frozen source; inspect the ScoreSight video. The last-change age measures observed numeric changes, not detection freshness. No extrapolated countdown or stale-to-zero fallback is used.
+
+The actual schema and status interpretation were checked against the [official HTTP API guide](https://royshil.github.io/scoresight/http_server.html) and the live endpoint. The optional overlay version counter tracks changes, not a video heartbeat, and is not treated as source freshness.
+
+## Backend and persistence
+
+A single Go worker polls approximately five times per second with an 800 ms request timeout, bounded response size and no overlapping requests. It uses fixed `/json` GET requests, disables redirects/proxies and sends no Field Scoreboard credentials upstream. Addresses accept HTTP(S) with localhost or literal loopback/private IPs; credentials, query strings and arbitrary paths/public hosts are rejected. A pasted `/json` suffix is accepted and normalized.
+
+Address and explicitly selected field are optional configuration settings. Connection/following state and observed times are runtime-only. Restart always starts manual/Ready, with no automatic connection or follow. Changed settings require Connect again; field/source changes are blocked while following.
+
+Authenticated operator endpoints are `POST /api/ocr/connect` (`{"address":"http://127.0.0.1:18099"}`), `/api/ocr/field` (`{"field":"Time"}`), `/api/ocr/follow` and `/api/ocr/manual` (both `{}`). All require JSON content type; remote callers require the existing bearer header. The full operator snapshot includes connection/reading status. The read-only overlay receives only the effective match clock through its existing sanitized feed, not the OCR address, field list or warnings.
+
+Generation checks discard in-flight results across connection, field and ownership changes. Manual takeover never waits for network I/O. OCR never repeatedly calls the existing Set/Start APIs, changes configured duration/direction or writes readings to disk.
+
+## Evidence and remaining work
+
+See [test.9 verification](VERIFICATION-v0.1.0-test.9.md). Live observation covers connection, changing readings, follow, takeover and restart against the running source. Source pauses/resets, rejection, missing fields and failures/recovery are separately simulated; Field Timer and the live source were not controlled by these tests.
+
+Future work remains optional: mappings for other fields, verified detection freshness if an upstream API supplies it, field-wise confidence/stability policy, multiple-source/manual overrides and real venue evaluation. No general automatic sport rules or guaranteed OCR accuracy are included.

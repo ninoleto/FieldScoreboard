@@ -238,6 +238,36 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch {
+	case p == "ocr/connect" && r.Method == "POST":
+		var v struct {
+			Address string `json:"address"`
+		}
+		if err := decode(r, &v); err != nil {
+			apiErr(w, 400, err.Error())
+			return
+		}
+		s.done(w, s.App.ConnectOCR(v.Address))
+	case p == "ocr/field" && r.Method == "POST":
+		var v struct {
+			Field string `json:"field"`
+		}
+		if err := decode(r, &v); err != nil {
+			apiErr(w, 400, err.Error())
+			return
+		}
+		s.done(w, s.App.SelectOCRField(v.Field))
+	case (p == "ocr/follow" || p == "ocr/manual") && r.Method == "POST":
+		var v struct{}
+		if err := decode(r, &v); err != nil {
+			apiErr(w, 400, err.Error())
+			return
+		}
+		if p == "ocr/follow" {
+			s.done(w, s.App.FollowOCR())
+		} else {
+			s.App.TakeManualControl()
+			s.done(w, nil)
+		}
 	case p == "state" && r.Method == "GET":
 		respond(w, 200, s.App.State())
 	case p == "profiles" && r.Method == "GET":
@@ -453,6 +483,7 @@ func HTTPServer(s *Server, listen string) *http.Server {
 	return &http.Server{Addr: listen, Handler: s.Handler(), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 120 * time.Second}
 }
 func (s *Server) RunClockLoop(ctx context.Context) {
+	go s.App.RunOCR(ctx)
 	// Background tick ensures expired clocks settle when no overlay client is connected.
 	t := time.NewTicker(100 * time.Millisecond)
 	defer t.Stop()

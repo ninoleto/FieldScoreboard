@@ -2,7 +2,9 @@
 
 **A manual sports scoreboard and graphics editor for OBS Studio.** Control scores, fouls, periods and two independent clocks from a large, touch-friendly web panel. Arrange your artwork and scoreboard fields in one transparent 1920×1080 Browser Source, then nest it over your camera scene.
 
-Free and open source under the [MIT licence](LICENSE). Runs on **Windows x64 and Linux x64**, without a cloud account or extra application runtime. **v0.1.0-test.8 is the first public preview**, not a stable or fully field-validated release.
+Free and open source under the [MIT licence](LICENSE). Runs on **Windows x64 and Linux x64**, without a cloud account or extra application runtime. **This branch is v0.1.0-test.9, a local-only ScoreSight development build.** The published first preview remains test.8; the download links below are for that unchanged release. Neither build is a fully field-validated stable release.
+
+For the new connection, open **Live control → ScoreSight OCR — match clock**. Enter the ScoreSight address (default `http://127.0.0.1:18099`), Connect, select the actual Time field, then choose **Follow OCR clock**. **Take manual control** keeps the displayed time paused. Only the match clock is mapped. Rejected/missing readings keep the last value; source video freshness cannot be verified by this endpoint. See [setup and limitations](docs/OCR_PLAN.md), [test.9 notes](docs/RELEASE_NOTES-v0.1.0-test.9.md) and [verification](docs/VERIFICATION-v0.1.0-test.9.md). Use the separate local test.9 packages with an isolated configuration; do not overwrite production data.
 
 ## Download and start
 
@@ -53,8 +55,8 @@ The built-in **Companion HTTP Builder** generates requests for Bitfocus Companio
 
 ## Preview status and development
 
-**User-reported manual smoke test, 2026-11-06:** the Linux application and its overlay work with OBS Flatpak. This does not establish physical touchscreen, Windows tray, LAN, Companion or live-event validation. Automated checks and remaining manual checks are listed in [verification](docs/VERIFICATION-v0.1.0-test.8.md).
+**User-reported manual smoke test, 2026-11-06, for test.8:** the Linux application and its overlay work with OBS Flatpak. This does not validate the OCR build or establish physical touchscreen, Windows tray, LAN, Companion or live-event validation. See [test.8 verification](docs/VERIFICATION-v0.1.0-test.8.md) and the separate [test.9 results](docs/VERIFICATION-v0.1.0-test.9.md).
 
-OCR, automatic sport rules, NDI and direct OBS control are **not included**. Optional OCR is a [research plan](docs/OCR_PLAN.md), not a promised release feature.
+The local test.9 branch includes optional match-clock following from ScoreSight. Other OCR field mappings, automatic sport rules, NDI and direct OBS control are **not included**. See [current scope and future work](docs/OCR_PLAN.md).
 
 To contribute, read [CONTRIBUTING.md](CONTRIBUTING.md), the [architecture guide](docs/ARCHITECTURE.md), [AGENTS.md](AGENTS.md) and the current [handoff](handoff.md). Field Scoreboard is separate from Field Timer and is not affiliated with OBS Studio or Bitfocus Companion.

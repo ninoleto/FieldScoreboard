@@ -10,6 +10,8 @@ Field Scoreboard is one Go process with embedded browser assets. It owns the liv
 | `cmd/fieldscoreboard/tray_windows.go` / `tray_other.go` | Native Win32 tray; Linux terminal lifecycle. |
 | `internal/scoreboard/model.go` | Schema/defaults/validation, file writes, monotonic clock model and formatting. |
 | `internal/scoreboard/engine.go` | Mutex-protected game state, clock actions, snapshots and layout profiles. |
+| `internal/scoreboard/ocr.go` / `ocr_test.go` | Bounded ScoreSight polling, payload validation, runtime ownership/freshness status and regression tests. |
+| `internal/scoreboard/web/ocr.js` | Touch OCR connection, actual field options, drafts, follow/takeover and operator warnings. |
 | `internal/scoreboard/background.go` | Image dimension parsing, orientation, transform defaults and validation. |
 | `internal/scoreboard/network.go` | Private IPv4 interface discovery and address validation. |
 | `internal/scoreboard/server.go` | Embedded files, HTTP/SSE, authentication, uploads and sanitized overlay feed. |
@@ -25,6 +27,8 @@ Field Scoreboard is one Go process with embedded browser assets. It owns the liv
 `App` protects configuration and two runtime `Clock` values with a mutex. Timing uses elapsed monotonic time, not browser animation ticks. Snapshots settle clocks and format values. The server's background loop settles expired clocks even without an overlay client.
 
 Persisted data includes game values, durations/direction, OT, auto-hide and layout. Runtime elapsed/paused progress is not persisted: constructing a new App creates Ready clocks. Match and shot actions remain independent; combined Start/Pause is explicit. Shot Reset/Set resumes only when main is running. Shot visibility and the OT label are computed without changing clock timing or discarding the numeric period.
+
+With explicit OCR ownership, accepted readings write the held match-clock base under the same mutex; no internal countdown runs. The snapshot identifies main state as `ocr`. Manual match/combined transport, Set and adjustment are blocked until takeover; the shot clock stays independent. Auto-hide uses the held effective match value. Takeover keeps it paused. A generation check discards requests begun before ownership/source changes. One context-bound worker owns HTTP polling; timeouts never hold the state mutex. Restart connects/follows nothing automatically. Optional config `ocr` stores address/field only; runtime status is exposed to authenticated operators, omitted from sanitized OBS payloads. See [source contract and freshness limitations](OCR_PLAN.md).
 
 ## Embedded frontend and rendering
 
@@ -70,5 +74,8 @@ The common remote API gate uses constant-time bearer comparison. Client IP comes
 | `GET /api/profiles`, `POST /api/profiles` | List, or `{"name":"Example","action":"save"}` (`load`/`delete` also supported). |
 | `POST /api/background[?draft=1]`, `DELETE /api/background` | Raw image upload / removal; draft upload returns metadata for editor Save. |
 | `PUT /api/network` | `{"listen":"127.0.0.1:8790"}`; persists listener for next restart. |
+| `POST /api/ocr/connect` | `{"address":"http://127.0.0.1:18099"}`; persist address and start monitoring only. |
+| `POST /api/ocr/field` | `{"field":"Time"}`; select a discovered field while manual. |
+| `POST /api/ocr/follow`, `POST /api/ocr/manual` | `{}`; explicit match-clock ownership / immediate paused takeover. |
 
 JSON payloads require `Content-Type: application/json`; decoding rejects unknown fields and multiple JSON values. Image uploads use image bytes. The HTTP Builder produces supported action requests; see [Companion setup](COMPANION_SETUP.md). Security/API tests live with the server/engine tests. Preserve these boundaries and saved-config compatibility.

@@ -247,3 +247,16 @@ button.touch-select-trigger{display:flex;width:100%;justify-content:space-betwee
 #selectBackground[aria-pressed="true"]::before{content:'✓ ';color:#95ffe8}
 #backgroundEditHelp{margin:8px 0 0;color:#c4d8e9;font-size:14px;line-height:1.45}
 @media(max-width:1300px){.workspace{grid-template-columns:1fr}}
+
+/* ScoreSight connection: large controls, with source health kept off OBS. */
+.ocr-card{margin:20px 0}.ocr-card p{overflow-wrap:anywhere;line-height:1.5}
+.ocr-settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px;align-items:end}
+.ocr-settings label{display:grid;gap:10px;min-width:0;font-size:18px}.ocr-settings input{min-height:64px;width:100%;min-width:0;font-size:20px;border:1px solid #6a829e;border-radius:9px;padding:12px;background:#0a1523;color:#eef8ff}.ocr-settings input:disabled{color:#c4d8e9;background:#142234}.ocr-card h3{font-size:18px}
+.ocr-settings button{min-height:64px;font-size:18px;white-space:normal}
+.ocr-readings{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:18px;margin:18px 0}
+.ocr-readings>div{min-width:0;padding:16px;border:1px solid #536b85;border-radius:12px;background:#101d2d}
+.ocr-readings span{display:block;font-size:18px}.ocr-readings output{display:block;font:700 32px ui-monospace,monospace;overflow-wrap:anywhere;margin-top:10px}
+.ocr-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px}
+.ocr-actions button{min-height:72px;font-size:20px;white-space:normal}
+#ocrConnection,#ocrReadingStatus,#ocrWarning{font-size:18px}.ocr-online{color:#92f2bd}.ocr-attention{padding:14px;border:2px solid #d8ab50;border-radius:10px;background:#302614;color:#ffe1a0}
+#ocrMode.ocr-following{color:#b5ffdb;background:#155b4b;border:2px solid #74e7d6}#ocrFollow[aria-pressed="true"]{border:2px solid #95ffe8}

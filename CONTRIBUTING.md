@@ -42,6 +42,7 @@ Open `http://127.0.0.1:8790`. Add `--listen 127.0.0.1:8791` if another instance 
 python scripts/test_ui_offline.py
 python scripts/test_background_ui.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_http.py bin/fieldscoreboard-windows-console.exe
+python scripts/test_ocr.py bin/fieldscoreboard-windows-console.exe --ui
 ```
 
 **Linux Bash:**
@@ -51,6 +52,7 @@ bash scripts/build.sh
 python scripts/test_ui_offline.py
 python scripts/test_background_ui.py bin/fieldscoreboard-linux
 python scripts/test_http.py bin/fieldscoreboard-linux
+python scripts/test_ocr.py bin/fieldscoreboard-linux --ui
 ```
 
 The build scripts run Go tests/vet and cross-compile Windows GUI, Windows console and Linux amd64 into `bin/`. The Linux script also runs the race detector. Windows requires Node; the Bash script checks JavaScript when Node is present, so ensure Node is installed for release verification. Windows alone does not satisfy Linux race/native smoke requirements.
@@ -65,6 +67,8 @@ go vet ./...
 On Linux, run `CGO_ENABLED=1 go test -race ./...`. Check each `internal/scoreboard/web/*.js` with `node --check` (PowerShell: `Get-ChildItem internal/scoreboard/web/*.js | ForEach-Object { node --check $_.FullName }`; Bash: `for js in internal/scoreboard/web/*.js; do node --check "$js"; done`).
 
 The offline UI suite serves mocked API state, not OBS. The background and HTTP suites start isolated native processes with temporary configurations and generated artwork. Screenshots go under `.test/`. Inspect responsive screenshots, including 375 px and a maximized 1920×1080 viewport. Touch emulation is not physical touchscreen validation.
+
+The OCR suite simulates ScoreSight status, pauses/resets, missing/rejected readings, loss/recovery and takeover; omit `--ui` for a native HTTP-only run. For a running real ScoreSight, use `python scripts/test_ocr.py <native-binary> --live-address http://127.0.0.1:18099`. It starts an isolated scoreboard, reads the source without modifying it and records live observations separately. Do not combine `--ui` with the live option: browser field fixtures belong to the simulator.
 
 ## Contribution workflow
 

@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-const Version = "0.1.0-test.8"
+const Version = "0.1.0-test.9"
 const CanvasW = 1920
 const CanvasH = 1080
 
@@ -41,22 +41,23 @@ type Layout struct {
 	ShotClockFormat     string               `json:"shot_clock_format"`
 }
 type Config struct {
-	Version        int    `json:"version"`
-	Listen         string `json:"listen"`
-	Token          string `json:"token"`
-	HomeName       string `json:"home_name"`
-	AwayName       string `json:"away_name"`
-	HomeScore      int    `json:"home_score"`
-	AwayScore      int    `json:"away_score"`
-	HomeFouls      int    `json:"home_fouls"`
-	AwayFouls      int    `json:"away_fouls"`
-	Period         int    `json:"period"`
-	PeriodOvertime bool   `json:"period_overtime"`
-	ShotAutoHide   bool   `json:"shot_auto_hide"`
-	MainDuration   int    `json:"main_duration"`
-	ShotDuration   int    `json:"shot_duration"`
-	MainDirection  string `json:"main_direction"`
-	Layout         Layout `json:"layout"`
+	Version        int          `json:"version"`
+	Listen         string       `json:"listen"`
+	Token          string       `json:"token"`
+	HomeName       string       `json:"home_name"`
+	AwayName       string       `json:"away_name"`
+	HomeScore      int          `json:"home_score"`
+	AwayScore      int          `json:"away_score"`
+	HomeFouls      int          `json:"home_fouls"`
+	AwayFouls      int          `json:"away_fouls"`
+	Period         int          `json:"period"`
+	PeriodOvertime bool         `json:"period_overtime"`
+	ShotAutoHide   bool         `json:"shot_auto_hide"`
+	MainDuration   int          `json:"main_duration"`
+	ShotDuration   int          `json:"shot_duration"`
+	MainDirection  string       `json:"main_direction"`
+	Layout         Layout       `json:"layout"`
+	OCR            *OCRSettings `json:"ocr,omitempty"`
 }
 
 func DefaultLayout() Layout {
@@ -219,6 +220,14 @@ func ValidateLayout(l Layout) error {
 	return nil
 }
 func ValidateConfig(c Config) error {
+	if c.OCR != nil {
+		if _, err := normalizeScoreSight(c.OCR.Address); err != nil {
+			return err
+		}
+		if !validOCRField(c.OCR.Field) {
+			return errors.New("invalid OCR field name")
+		}
+	}
 	if c.Version != 1 {
 		return errors.New("unsupported config version")
 	}
