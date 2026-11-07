@@ -24,6 +24,12 @@ for entry in manifest:
             assert not filename.startswith(('/', '\\')) and '..' not in parts
             assert not any(p in {'.git','.test','.tools','__pycache__','config.json'} for p in parts),filename
             assert not filename.endswith(('.log','.pyc','.tmp')),filename
+            if filename.endswith('.sh') or filename=='fieldscoreboard':
+                info=archive.getinfo(filename)
+                assert info.create_system==3 and info.external_attr>>16 & 0o111,filename
+            if filename.endswith('.sh'):
+                script=archive.read(filename)
+                assert b'\r' not in script and script.endswith(b'\n'),filename
         if '-Source-' in name:
             prefix=f'field-scoreboard-v{version}-source/'
             assert all(n.startswith(prefix) for n in names)

@@ -2,13 +2,13 @@
 
 **A sports scoreboard and graphics editor for OBS Studio, for Windows and Linux.** Control scores, fouls, periods and two independent clocks from a large, touch-friendly web panel. Use manual controls or optionally follow recognised values from ScoreSight. Arrange artwork and scoreboard fields in one transparent 1920×1080 Browser Source.
 
-**v0.1.2 review build — awaiting visual acceptance.** The current public release remains v0.1.0; the download links below refer to that release until v0.1.2 is approved. Free and open source under the [MIT licence](LICENSE). Windows x64 and Linux x64 packages run without a cloud account or additional application runtime. ScoreSight is needed only for optional OCR. [v0.1.2 changes](docs/RELEASE_NOTES-v0.1.2.md) · [Verification and limitations](docs/VERIFICATION-v0.1.2.md).
+**Field Scoreboard v0.1.2 — stable release for Windows and Linux.** Free and open source under the [MIT licence](LICENSE). Windows x64 and Linux x64 packages run without a cloud account or additional application runtime. ScoreSight is needed only for optional OCR. [v0.1.2 changes](docs/RELEASE_NOTES-v0.1.2.md) · [Verification and limitations](docs/VERIFICATION-v0.1.2.md).
 
 ## Download and start
 
-**[Download for Windows](https://github.com/ninoleto/FieldScoreboard/releases/download/v0.1.0/FieldScoreboard-Windows-v0.1.0.zip)** · **[Download for Linux](https://github.com/ninoleto/FieldScoreboard/releases/download/v0.1.0/FieldScoreboard-Linux-v0.1.0.zip)**
+**[Download for Windows](https://github.com/ninoleto/FieldScoreboard/releases/download/v0.1.2/FieldScoreboard-Windows-v0.1.2.zip)** · **[Download for Linux](https://github.com/ninoleto/FieldScoreboard/releases/download/v0.1.2/FieldScoreboard-Linux-v0.1.2.zip)**
 
-[Source ZIP](https://github.com/ninoleto/FieldScoreboard/releases/download/v0.1.0/FieldScoreboard-Source-v0.1.0.zip) · [SHA-256 checksums](https://github.com/ninoleto/FieldScoreboard/releases/download/v0.1.0/SHA256SUMS.txt) · [GitHub release](https://github.com/ninoleto/FieldScoreboard/releases/tag/v0.1.0)
+[Source ZIP](https://github.com/ninoleto/FieldScoreboard/releases/download/v0.1.2/FieldScoreboard-Source-v0.1.2.zip) · [SHA-256 checksums](https://github.com/ninoleto/FieldScoreboard/releases/download/v0.1.2/SHA256SUMS.txt) · [GitHub release](https://github.com/ninoleto/FieldScoreboard/releases/tag/v0.1.2)
 
 Extract the whole ZIP into a writable folder before running it.
 
@@ -17,13 +17,13 @@ Extract the whole ZIP into a writable folder before running it.
 **Linux:** open a terminal in the extracted folder:
 
 ```bash
-chmod +x fieldscoreboard start-portable.sh
+chmod +x start-portable.sh fieldscoreboard
 ./start-portable.sh
 ```
 
-Keep the terminal open; stop the application with **Ctrl+C**. The launcher uses portable storage in the extracted folder. Linux has no tray. Running `./fieldscoreboard` directly uses the user configuration folder; add `--open=false` for headless use.
+**No sudo is needed.** The terminal stays open while the application runs; stop it with **Ctrl+C**. The launcher uses portable storage in the extracted folder. Linux has no tray. Running `./fieldscoreboard` directly uses the user configuration folder; add `--open=false` for headless use.
 
-Open the control panel at **http://127.0.0.1:8790** on the host computer. Existing settings remain compatible; keep the same launch mode when upgrading. See [configuration locations and backups](docs/USER_GUIDE.md#configuration-and-backups).
+Open the control panel at **http://127.0.0.1:8790** on the host computer. Existing settings remain compatible. Before upgrading, stop the app and back up `config.json`, `profiles/` and `backgrounds/` together. Extract the new version into a separate writable folder. For portable use, copy that data into the new folder before starting; for direct executable use, keep the same user configuration location. Keep the same launch mode so the intended settings are used. See [configuration locations and backups](docs/USER_GUIDE.md#configuration-and-backups).
 
 ## Put it in OBS
 
@@ -52,6 +52,6 @@ In **Output & API**, enable LAN access, save and restart. Use the selected real 
 
 ## Verification and development
 
-The operator accepted the application for v0.1.0 release. Automated checks are documented separately from manual evidence: on **2026-11-06**, the operator reported Linux/OBS Flatpak working with test.8 and match-clock OCR working at home with test.9. These reports do not establish venue, physical touchscreen, tray, LAN or Companion validation. The v0.1.2 visual review is pending. See [review-build verification](docs/VERIFICATION-v0.1.2.md).
+On **2026-11-07**, the owner accepted the v0.1.2 interface and reported that the **Linux test PASSED**. This is an owner-reported result, not an additional physical touchscreen, venue OCR or OBS test. Automated Windows/Linux, clock/OCR, layout, responsive and package checks are documented separately in [release verification](docs/VERIFICATION-v0.1.2.md). Historical test.8 Linux/OBS Flatpak and test.9 home match-clock OCR reports retain their original scope.
 
 Automatic sport rules, NDI, direct OBS control and verified video freshness are **not implemented**. Contributions start with [CONTRIBUTING.md](CONTRIBUTING.md), [architecture](docs/ARCHITECTURE.md), [AGENTS.md](AGENTS.md) and [handoff](handoff.md). Field Scoreboard is separate from Field Timer and is not affiliated with OBS Studio, ScoreSight or Bitfocus Companion.

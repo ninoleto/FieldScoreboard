@@ -1,33 +1,36 @@
 # Field Scoreboard handoff
 
-Prepared version: **v0.1.2**, continuing from local v0.1.1 commit `52f3458ae7a7e774de6d16d3c6135a07274a83da`, on **2026-11-07**, branch `prepare/v0.1.2`. This is a local visual-review build; acceptance/publication are pending. Repository: [ninoleto/FieldScoreboard](https://github.com/ninoleto/FieldScoreboard). Field Timer was untouched.
+Version **v0.1.2**, 2026-11-07. Repository: [ninoleto/FieldScoreboard](https://github.com/ninoleto/FieldScoreboard). Release: [Field Scoreboard v0.1.2](https://github.com/ninoleto/FieldScoreboard/releases/tag/v0.1.2). The owner accepted the interface at `e9f19cdc2e1dd2b9942dc94010422a043d736a16`, reported **Linux test PASSED** and explicitly authorized publication as the normal Latest release. Final publication changes documentation and ZIP permission metadata only; application source, launchers and tested executable bytes remain unchanged. Field Timer was untouched.
 
-Read [AGENTS.md](AGENTS.md), [user guide](docs/USER_GUIDE.md), [architecture](docs/ARCHITECTURE.md), [v0.1.2 notes](docs/RELEASE_NOTES-v0.1.2.md) and [verification](docs/VERIFICATION-v0.1.2.md). Historical release notes/evidence remain unchanged.
+Read [AGENTS.md](AGENTS.md), [user guide](docs/USER_GUIDE.md), [architecture](docs/ARCHITECTURE.md), [release notes](docs/RELEASE_NOTES-v0.1.2.md) and [verification](docs/VERIFICATION-v0.1.2.md). The [original review evidence](docs/VERIFICATION-v0.1.2-review.md) is a historical record and its review-stage status is superseded by the acceptance above.
 
-## v0.1.2 changes
+## Included behavior
 
-- Background Sizing is four always-visible buttons: Fit entire image, Fill canvas, Original size and Stretch to canvas. Each includes its requested explanatory text. Desktop uses a balanced 2×2 grid; narrow screens stack readable large targets. Selection uses the existing green color, border and checkmark.
-- Buttons call the unchanged background preset handler and shared sizing calculations. Their pressed state reflects the draft mode. Manual positioning/resizing or Center image shows Custom sizing with no selected preset; Custom is a status, not another action. No hidden sizing select remains.
-- Aspect lock/numeric controls stay below; Center image, Reset to fit, explicit background drag/resize, import/removal, legacy stretch, Save Layout/Discard and profiles retain their behavior. The editor displays drafts; live preview/OBS keep the saved layout until Save Layout. Both desktop editor cards still share top/bottom edges, with Layout profiles separately below.
-- Runtime/UI and current documentation now use 0.1.2. Tests cover all four presets and Custom transitions with portrait/landscape images, aspect locking, save/discard/profile restoration, saved preview/OBS geometry, touch/keyboard, small screens and zoom. Fresh binaries/packages are built, not renamed v0.1.1 artifacts.
+- ScoreSight has independent Connect/Disconnect controls and a text/color backend status badge. Disconnect cancels polling/in-flight I/O, returns followed fields to manual with values retained and leaves owned clocks paused. Address/mappings persist; reconnect never restores ownership or starts clocks. Successful HTTP polling cannot prove camera freshness.
+- The editor has top Restore Defaults, Discard, Save Layout actions, coordinate help beneath X/Y, Free transform left and Edit background right, aligned desktop card edges and a separate Layout profiles card below. Reset scope is unchanged.
+- Background Sizing uses four visible Fit/Fill/Original/Stretch buttons with explanations and green selected border/checkmark. Manual adjustments show Custom sizing with no preset selected. Aspect lock, numeric controls, Center/Reset, gestures, draft Save/Discard, profiles and shared saved preview/OBS geometry are preserved. Narrow screens stack large targets.
 
-## Preserved v0.1.1 behavior and checkpoint
+## Startup and configuration
 
-Keep `prepare/v0.1.1` at `52f3458` and all local `releases/v0.1.1/` files. The release-file hash manifest verifies earlier archives are unchanged. ScoreSight Connect/Disconnect, cancellation/generation safeguards, retained values, paused owned clocks and explicit following after reconnect remain unchanged. Successful polling still does not prove camera freshness. Top editor actions remain Restore Defaults, Discard, Save Layout with the same reset scope; coordinate help and toolbar order remain.
+Windows: extract the complete ZIP into a writable folder, then double-click `fieldscoreboard.exe`; exit through its tray menu. Use `start-portable.cmd` for data beside the executable.
 
-## Review delivery
+Linux: from the extracted application directory:
 
-Review files live under the workspace's `releases/v0.1.2/` outside the checkout: Windows/Linux/source ZIPs, SHA256SUMS.txt, updated screenshots and screenshot ZIP/checksum. Packages exclude runtime settings, credentials, caches and personal graphics. Tests use isolated configurations and generated artwork. See [verification](docs/VERIFICATION-v0.1.2.md) for final automated evidence and limitations.
+```bash
+chmod +x start-portable.sh fieldscoreboard
+./start-portable.sh
+```
 
-## Publication after acceptance
+Sudo is unnecessary. The terminal stays open while the app runs; Ctrl+C stops it. The interface is at http://127.0.0.1:8790. Linux has no tray. Portable launchers use the extracted folder's config; direct executables use the user config directory unless `--config` is supplied. Upgrades must retain the launch mode/path and `config.json`, `profiles/`, `backgrounds/` together. See the guide for exact locations.
 
-1. Await the owner's visual acceptance. This review pass publishes, tags or deletes nothing remotely.
-2. Integrate accepted source into main without force-pushing and publish **v0.1.2 as Latest**, normal release (`draft=false`, `prerelease=false`). This supersedes the planned v0.1.1 publication; preserve its local checkpoint/packages.
-3. Verify unauthenticated public access and download every replacement asset; compare SHA-256 against accepted artifacts.
-4. Only after successful public verification, delete the **v0.1.0 GitHub release entry and attached assets**. Preserve its Git tag, history and local release archives, and leave unrelated releases alone.
+## Release and retention
 
-README download links still target public v0.1.0 during review. Update them to v0.1.2 for accepted publication before deleting the old release entry. If documentation is repackaged, retain tested executable bytes and regenerate/verify checksums. Never rewrite tagged history.
+The final release is integrated into main without force-pushing and tagged `v0.1.2`; normal release flags are draft=false/prerelease=false, with Latest selected. The final source ZIP must agree with that commit and platform documentation. Final packages/checksums and publication receipts live under the workspace's `releases/v0.1.2-published/`; original review files remain in `releases/v0.1.2/`. Keep `prepare/v0.1.1` at `52f3458` and `prepare/v0.1.2` at `e9f19cd`.
 
-## Operator checks
+The owner's current removal authorization covers **all older GitHub releases and attached assets in ninoleto/FieldScoreboard**, including tests/prereleases, superseding the earlier v0.1.0-only plan. Removal follows successful unauthenticated download/hash verification and main/tag/source agreement. Preserve full release/asset metadata and all attached assets in the local GitHub archive first; retain all Git tags, history and existing local release archives. Initial remote inventory contained v0.1.0 and v0.1.0-test.8. The local publication receipt and release-page verification record report the final outcome; do not infer future cleanup authorization from this one-time operation. Other repositories are out of scope.
 
-Visual acceptance is pending. Physical touchscreen, Windows tray, production OBS, real seven-field capture pause/reset/freeze/loss, separate-machine LAN/firewall, Companion hardware and venue accuracy/latency remain operator checks. Historical test.8 Linux OBS Flatpak/test.9 home OCR reports remain scoped reports. Preserve the test.10/test.11 HTTP reset investigation and do not hide transport failures with retries. Automatic sport rules, NDI, direct OBS control and verified video freshness remain future work.
+## Verification boundaries
+
+The accepted interface and owner-reported Linux PASS are recorded accurately. Reuse the historical Go/vet/Linux race, responsive/zoom, OCR/clock/layout and native-package tests only for the identical application/executable bytes. Final documentation/archive/link/permission checks and public download verification are separate publication checks.
+
+No additional physical touchscreen, Windows tray, production OBS, venue OCR or live-video freshness, separate-machine LAN/firewall or Companion hardware pass is claimed. Historical test.8 Linux OBS Flatpak/test.9 home OCR reports remain scoped reports. Preserve the test.10/test.11 HTTP reset investigation and never hide transport failures with retries. Automatic sport rules, NDI, direct OBS control and verified video freshness remain future work.

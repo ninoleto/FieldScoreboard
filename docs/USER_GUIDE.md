@@ -4,16 +4,16 @@
 
 ## Starting and stopping
 
-Extract the complete Windows or Linux ZIP into a writable folder. Windows x64 has a GUI executable (`fieldscoreboard.exe`) and a diagnostic console executable (`fieldscoreboard-console.exe`); both use the native tray. Double-click the tray icon to reopen the control panel. Right-click for Open Field Scoreboard, Open data folder or Exit Field Scoreboard. Closing a browser tab does not stop the server or clocks.
+Download v0.1.2 from the [release page](https://github.com/ninoleto/FieldScoreboard/releases/tag/v0.1.2) and extract the complete Windows or Linux ZIP into a writable folder. On Windows, double-click `fieldscoreboard.exe` to start. Windows x64 has a GUI executable (`fieldscoreboard.exe`) and a diagnostic console executable (`fieldscoreboard-console.exe`); both use the native tray. Double-click the tray icon to reopen the control panel. Right-click for Open Field Scoreboard, Open data folder or Exit Field Scoreboard. Closing a browser tab does not stop the server or clocks.
 
 For Windows portable storage, use `start-portable.cmd`. For Linux portable storage, open a terminal in the extracted folder:
 
 ```bash
-chmod +x fieldscoreboard start-portable.sh
+chmod +x start-portable.sh fieldscoreboard
 ./start-portable.sh
 ```
 
-Keep the terminal open and press Ctrl+C to stop. Linux has no tray. Running `./fieldscoreboard` directly uses the user configuration directory instead. Both platforms open the browser automatically unless launched with `--open=false`. Open **http://127.0.0.1:8790** manually if needed.
+**Sudo is unnecessary.** The terminal stays open while Field Scoreboard runs; press Ctrl+C to stop. Linux has no tray. Running `./fieldscoreboard` directly uses the user configuration directory instead. Both platforms open the browser automatically unless launched with `--open=false`. Open **http://127.0.0.1:8790** manually if needed.
 
 Do not start two instances using the same configuration or listening port. A port-in-use error usually means an instance is already running. Windows startup errors appear in a dialog; its log is `fieldscoreboard.log` next to the active configuration. Linux logs to the terminal. For a custom location, use `--config /path/to/config.json` (quote paths containing spaces).
 
@@ -138,8 +138,10 @@ Next to the active configuration are `profiles/` (layout JSON), `backgrounds/` (
 
 There is **no automatic backup/export feature**. Stop the application, then copy `config.json`, `profiles/` and `backgrounds/` together to a private backup location. To restore or move a portable setup, stop the destination instance and restore these into its active data directory. Keep the same launch mode after an upgrade so the intended configuration is used. Avoid deleting artwork still referenced by any preset. Runtime clock progress is not saved or restored.
 
+**Upgrading to v0.1.2:** stop the old instance and make the backup above. Extract the new application into a separate writable folder. If using a portable launcher, copy the existing `config.json`, `profiles/` and `backgrounds/` together into that folder before starting it. If launching the executable directly, the new version uses the same user configuration directory; retain any existing `--config` argument instead if you use a custom path. Packages contain no user configuration or personal images. Existing settings and profiles remain compatible. Do not switch between portable and direct launch unless you intentionally move the data. On restart, clocks are Ready and OCR is disconnected/manual; reconnect and choose Follow OCR explicitly.
+
 ## Known limits and feedback
 
-Field Scoreboard v0.1.2 supports Windows/Linux x64. Automatic competition rules are not implemented. Linux has no native tray, and OBS Browser Source availability depends on its installation. The release includes independent ScoreSight match/shot clock, home/away score/foul and numeric period mappings; NDI, direct OBS integration and dedicated live Companion feedback are absent. Timing displays can lag with browser/network load; rehearse before a broadcast.
+Field Scoreboard v0.1.2 supports Windows/Linux x64. On 2026-11-07 the owner accepted the interface and reported the Linux test PASSED; that report does not establish additional physical touchscreen, venue OCR or OBS testing. Automatic competition rules are not implemented. Linux has no native tray, and OBS Browser Source availability depends on its installation. The release includes independent ScoreSight match/shot clock, home/away score/foul and numeric period mappings; NDI, direct OBS integration and dedicated live Companion feedback are absent. Timing displays can lag with browser/network load; rehearse before a broadcast.
 
 Report reproducible problems through [GitHub issues](https://github.com/ninoleto/FieldScoreboard/issues), including version, platform, launch mode and steps. Remove tokens, personal artwork and private configuration before attaching diagnostics. [Verification](VERIFICATION-v0.1.2.md) distinguishes automation from outstanding manual tests.
