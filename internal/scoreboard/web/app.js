@@ -10,6 +10,8 @@
  const editorSelection=()=>backgroundEditor?.selected?'background':selected;
  let mainDraftDirty=false,shotDraftDirty=false,networkDirty=false,builderHostDirty=false,stateEpoch=0,ocrPending=0;
  let detectedInterfaces=[],selectedIP='',builderToken=token;
+ const displayFields={homeFoulStyle:'foul_style_home',awayFoulStyle:'foul_style_away',foulDotsMax:'foul_dots_max',mainFormat:'main_clock_format',shotFormat:'shot_clock_format'};
+ const displayPending=new Map(),displayDrafts=new Map();let displayBusy=false,displayWait=null,dotsDirty=false;
  const fullLayout=()=>JSON.parse(JSON.stringify(layout));
  function message(v,good=false){let b=$('banner');b.textContent=v;b.classList.remove('hidden');b.classList.toggle('success',good);clearTimeout(messageTimer);if(good)messageTimer=setTimeout(()=>b.classList.add('hidden'),4000)}
  async function api(path,method='GET',body){
@@ -25,6 +27,7 @@
  function draw(){
   if(!s)return;
   stage.paint($('previewStage'),s,s.layout,null);stage.scale($('previewStage'));
+  if(layout)for(const key of Object.values(displayFields))layout[key]=s.layout[key];
   if(!layout || (!dirty && JSON.stringify(layout)!==JSON.stringify(s.layout))){layout=JSON.parse(JSON.stringify(s.layout));updateInspector()}
   stage.paint($('editorStage'),s,layout,editorSelection(),dragging?.id);stage.scale($('editorStage'));
   ['homeName','awayName'].forEach(id=>{const el=$(id);if(document.activeElement!==el)el.value=s[id==='homeName'?'home_name':'away_name']});
@@ -52,7 +55,7 @@
   const port=(s.active_listen||s.listen).split(':').pop();$('overlayUrl').textContent=`http://127.0.0.1:${port}/overlay`;
   updateBuilder();
   backgroundEditor?.sync();elementEditor?.sync();
-  ocrControls.sync(s);
+  ocrControls.sync(s);syncDisplay();
   window.refreshTouchOptions?.();
  }
  const pageNames={control:'Live control',editor:'Layout editor',setup:'Output & API'};
@@ -155,7 +158,7 @@
  $('resetMatch').addEventListener('click',()=>{if(confirm('Reset BOTH scores, fouls, and period to initial values? Clocks will not be changed.'))action('/api/reset-game')});
  // Touch layout adjustment: deliberate pixel increments, not native number spinners.
  let nudgeSize=5;
- const elementBounds={elementX:[0,1920],elementY:[0,1080],elementSize:[12,240],foulDotsMax:[1,20]};
+ const elementBounds={elementX:[0,1920],elementY:[0,1080],elementSize:[12,240]};
  function stepElement(id,delta){
   if(!layout||!Object.hasOwn(elementBounds,id))return;
   const input=$(id),[min,max]=elementBounds[id];
@@ -179,12 +182,11 @@
  }));
  // All controls below edit a temporary layout until the operator chooses Save.
  function mark(){layoutRevision++;dirty=true;$('unsavedBadge').classList.remove('hidden');if(s){stage.paint($('editorStage'),s,layout,editorSelection(),dragging?.id);stage.scale($('editorStage'));elementEditor?.sync()}}
- const fieldPills=$('fieldPills');for(const id of stage.fieldIDs){const b=document.createElement('button');b.textContent=names[id];b.dataset.field=id;b.addEventListener('click',()=>selectField(id));fieldPills.append(b)}
+ const fieldPills=$('fieldPills');for(const id of ['main_clock','shot_clock','period','home_name','home_score','home_fouls','away_name','away_score','away_fouls']){const b=document.createElement('button');b.textContent=names[id];b.dataset.field=id;b.addEventListener('click',()=>selectField(id));fieldPills.append(b)}
  function selectField(id){if(!layout||!layout.elements[id])return;backgroundEditor?.select(false);selected=id;updateInspector();if(s)stage.paint($('editorStage'),s,layout,editorSelection(),dragging?.id);elementEditor?.sync()}
  function updateInspector(){if(!layout)return;const el=layout.elements[selected];if(!el)return;
   fieldPills.querySelectorAll('button').forEach(b=>b.classList.toggle('selected',b.dataset.field===selected));$('selectedTitle').textContent=names[selected];
   $('elementVisible').checked=el.visible;$('elementX').value=el.x;$('elementY').value=el.y;$('elementFont').value=el.font;$('elementSize').value=el.size;$('elementAlign').value=el.align;$('elementColor').value=el.color;$('elementBold').checked=el.bold;
-  $('homeFoulStyle').value=layout.foul_style_home;$('awayFoulStyle').value=layout.foul_style_away;$('foulDotsMax').value=layout.foul_dots_max;$('mainFormat').value=layout.main_clock_format;$('shotFormat').value=layout.shot_clock_format;
   $('backgroundName').textContent=layout.background ? 'Image: '+layout.background.slice(0,10)+'…' : 'No background loaded';
   window.refreshTouchOptions?.();
  }
@@ -194,8 +196,45 @@
  });
  [['elementVisible','visible'],['elementBold','bold']].forEach(([id,prop])=>$(id).addEventListener('change',()=>change(prop,$(id).checked)));
  [['elementFont','font'],['elementAlign','align'],['elementColor','color']].forEach(([id,prop])=>$(id).addEventListener('change',()=>change(prop,$(id).value)));
- [['homeFoulStyle','foul_style_home'],['awayFoulStyle','foul_style_away'],['mainFormat','main_clock_format'],['shotFormat','shot_clock_format']].forEach(([id,prop])=>$(id).addEventListener('change',()=>{layout[prop]=$(id).value;mark()}));
- $('foulDotsMax').addEventListener('change',()=>{const n=Number($('foulDotsMax').value);layout.foul_dots_max=Math.min(20,Math.max(1,Math.round(n||5)));$('foulDotsMax').value=layout.foul_dots_max;mark()});
+ // Live appearance updates are serialized and never commit the editor draft.
+ function syncDisplay(){
+  if(!s)return;
+  for(const [id,key] of Object.entries(displayFields)){
+   if(id==='foulDotsMax'&&dotsDirty)continue;
+   $(id).value=displayDrafts.has(key)?displayDrafts.get(key):s.layout[key];
+  }
+  $('displayStatus').textContent=displayBusy?'Saving display options…':'';
+ }
+ function setDisplay(field,value){
+  displayDrafts.set(field,value);displayPending.set(field,value);
+  if(displayBusy){syncDisplay();return displayWait}
+  displayBusy=true;syncDisplay();
+  displayWait=(async()=>{
+   while(displayPending.size){
+    if(opBusy||layoutSaveBusy||ocrPending){await new Promise(resolve=>setTimeout(resolve,30));continue}
+    const [key,next]=displayPending.entries().next().value;displayPending.delete(key);
+    const ok=await action('/api/display',{field:key,value:next});
+    if(!displayPending.has(key)){
+     displayDrafts.delete(key);
+     if(key==='foul_dots_max'&&ok&&$('foulDotsMax').value===String(next))dotsDirty=false;
+    }
+    syncDisplay();window.refreshTouchOptions?.();
+   }
+  })().finally(()=>{displayBusy=false;syncDisplay()});
+  return displayWait;
+ }
+ for(const [id,key] of Object.entries(displayFields))if(id!=='foulDotsMax')$(id).addEventListener('change',()=>setDisplay(key,$(id).value));
+ $('foulDotsMax').addEventListener('input',()=>{dotsDirty=true;$('foulDotsMax').removeAttribute('aria-invalid')});
+ $('foulDotsMax').addEventListener('change',()=>{
+  const n=Number($('foulDotsMax').value);dotsDirty=true;
+  if(!Number.isInteger(n)||n<1||n>20){$('foulDotsMax').setAttribute('aria-invalid','true');message('Maximum dots per team must be a whole number from 1 to 20.');return}
+  $('foulDotsMax').removeAttribute('aria-invalid');setDisplay('foul_dots_max',n);
+ });
+ document.querySelectorAll('[data-display-step]').forEach(button=>button.addEventListener('click',()=>{
+  const input=$('foulDotsMax'),value=Number(input.value),delta=Number(button.dataset.displayStep.split(':')[1]);
+  if(!input.value.trim()||!Number.isInteger(value)){message('Enter a valid maximum dot count first.');return}
+  input.value=Math.max(1,Math.min(20,value+delta));input.dispatchEvent(new Event('input'));input.dispatchEvent(new Event('change'));
+ }));
  const editor=$('editorStage');
  document.addEventListener('keydown',ev=>{if(tab!=='editor'||!layout||!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(ev.key))return;
   if(ev.defaultPrevented||$('touchChoiceDialog').open||['INPUT','SELECT','TEXTAREA','BUTTON'].includes(document.activeElement?.tagName))return;
@@ -212,10 +251,11 @@
  document.querySelector('.inspector').addEventListener('focusin',()=>{if(backgroundEditor.selected)backgroundEditor.select(false)});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&tab==='editor'&&!$('touchChoiceDialog').open)backgroundEditor.select(false)});
  async function saveLayout(){
+  await displayWait;
   if(!layout||layoutSaveBusy||!backgroundEditor.commitDrafts()||!elementEditor.commitDrafts())return false;
   const revision=layoutRevision,payload=fullLayout();layoutSaveBusy=true;$('saveLayout').disabled=true;
   try{
-   const updated=await api('/api/layout','PUT',payload);s=updated;
+   const updated=await api('/api/layout?preserve_display=1','PUT',payload);s=updated;
    if(layoutRevision===revision){layout=JSON.parse(JSON.stringify(s.layout));dirty=false;backgroundEditor.resetDrafts();elementEditor.resetDrafts();updateInspector();draw();message('Layout saved for OBS.',true);return true}
    draw();message('Layout saved. Newer edits are still unsaved.',true);return false;
   }catch(err){message(err.message);return false}
@@ -247,8 +287,8 @@
   layout.background='';delete layout.background_transform;backgroundEditor.resetDrafts();backgroundEditor.select(false);mark();draw();
  });
  async function refreshProfiles(){try{const x=await api('/api/profiles');const selected=$('profileSelect').value;$('profileSelect').replaceChildren(new Option('Select a saved profile',''));for(const name of x.profiles)$('profileSelect').add(new Option(name,name));$('profileSelect').value=x.profiles.includes(selected)?selected:'';window.refreshTouchOptions?.()}catch(err){message(err.message)}}
- $('saveProfile').addEventListener('click',async()=>{const name=$('profileName').value.trim();if(!name){message('Enter a preset name.');return}if(dirty&&!await saveLayout())return;try{await api('/api/profiles','POST',{name,action:'save'});await refreshProfiles();$('profileSelect').value=name;window.refreshTouchOptions?.();message('Preset saved.',true)}catch(err){message(err.message)}});
- $('loadProfile').addEventListener('click',async()=>{const name=$('profileSelect').value;if(!name)return;if(dirty&&!confirm('Discard unsaved changes and load the preset?'))return;try{s=await api('/api/profiles','POST',{name,action:'load'});layout=JSON.parse(JSON.stringify(s.layout));dirty=false;backgroundEditor.resetDrafts();backgroundEditor.select(false);elementEditor.resetDrafts();updateInspector();draw();message('Preset loaded.',true)}catch(err){message(err.message)}});
+ $('saveProfile').addEventListener('click',async()=>{await displayWait;const name=$('profileName').value.trim();if(!name){message('Enter a preset name.');return}if(dirty&&!await saveLayout())return;try{await api('/api/profiles','POST',{name,action:'save'});await refreshProfiles();$('profileSelect').value=name;window.refreshTouchOptions?.();message('Preset saved.',true)}catch(err){message(err.message)}});
+ $('loadProfile').addEventListener('click',async()=>{await displayWait;const name=$('profileSelect').value;if(!name)return;if(dirty&&!confirm('Discard unsaved changes and load the preset?'))return;try{s=await api('/api/profiles','POST',{name,action:'load'});layout=JSON.parse(JSON.stringify(s.layout));dirty=false;backgroundEditor.resetDrafts();backgroundEditor.select(false);elementEditor.resetDrafts();updateInspector();draw();message('Preset loaded.',true)}catch(err){message(err.message)}});
  $('deleteProfile').addEventListener('click',async()=>{const name=$('profileSelect').value;if(!name||!confirm(`Delete saved preset “${name}”?`))return;try{await api('/api/profiles','POST',{name,action:'delete'});await refreshProfiles();message('Preset removed.',true)}catch(err){message(err.message)}});
  function overlayUrl(){return $('overlayUrl').textContent}
  $('openOverlay').addEventListener('click',()=>window.open(overlayUrl(),'field_scoreboard_overlay','noopener'));

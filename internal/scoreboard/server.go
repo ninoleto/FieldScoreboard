@@ -352,6 +352,16 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.done(w, s.App.AdjustScore(v.Field, v.Delta))
+	case p == "display" && r.Method == "POST":
+		var v struct {
+			Field string          `json:"field"`
+			Value json.RawMessage `json:"value"`
+		}
+		if err := decode(r, &v); err != nil {
+			apiErr(w, 400, err.Error())
+			return
+		}
+		s.done(w, s.App.UpdateDisplay(v.Field, v.Value))
 	case p == "reset-game" && r.Method == "POST":
 		if !consumeActionBody(w, r) {
 			return
@@ -400,7 +410,14 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 			apiErr(w, 400, err.Error())
 			return
 		}
-		s.done(w, s.App.UpdateLayout(v))
+		switch r.URL.Query().Get("preserve_display") {
+		case "1":
+			s.done(w, s.App.UpdateEditorLayout(v))
+		case "":
+			s.done(w, s.App.UpdateLayout(v))
+		default:
+			apiErr(w, 400, "preserve_display must be 1 or omitted")
+		}
 	case p == "network" && r.Method == "PUT":
 		var v struct {
 			Listen string `json:"listen"`

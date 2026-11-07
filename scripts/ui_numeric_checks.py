@@ -43,7 +43,7 @@ def verify_numeric_controls(browser, offline_page, root):
                 button=page.locator('#selectBackground')
                 assert button.inner_text()=='Edit background — move & resize'
                 assert button.bounding_box()['height']>=64
-                assert page.locator('#backgroundEditHelp').inner_text()=='Select to drag the graphic or resize it using the corner handles.'
+                assert 'Select an element and drag to move.' in page.locator('#editorModeHelp').inner_text()
                 assert button.bounding_box()['y']+button.bounding_box()['height']<page.locator('#editorFrame').bounding_box()['y']
                 button.focus();page.keyboard.press('Space')
                 assert button.inner_text()=='Finish editing background'

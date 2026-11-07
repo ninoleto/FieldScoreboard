@@ -33,8 +33,8 @@ def no_overflow(page):
 
 def verify_touch_interface(browser, offline_page, root):
     selectors={
-        'control':['mainDirection'],
-        'editor':['profileSelect','elementFont','elementAlign','homeFoulStyle','awayFoulStyle','mainFormat','shotFormat'],
+        'control':['mainDirection','homeFoulStyle','awayFoulStyle','mainFormat','shotFormat'],
+        'editor':['profileSelect','elementFont','elementAlign'],
         'setup':['adapterSelect','builderAction','builderDirection'],
     }
     assert sum(map(len,selectors.values()))==11

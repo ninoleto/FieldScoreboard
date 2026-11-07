@@ -44,7 +44,11 @@ window.fetch=async (url,opts={})=>{
   window.__mock.restart_required=window.__mock.listen!==window.__mock.active_listen;
  }
  if(path==='/api/network-interfaces')result=window.__interfaces;
- if(path==='/api/layout')window.__mock.layout=body;
+ if(path==='/api/display')window.__mock.layout[body.field]=body.value;
+ if(path.startsWith('/api/layout')){
+  if(path.includes('preserve_display=1'))for(const k of ['foul_style_home','foul_style_away','foul_dots_max','main_clock_format','shot_clock_format'])body[k]=window.__mock.layout[k];
+  window.__mock.layout=body;
+ }
  if(path.startsWith('/api/clock/')&&method==='POST'){
    const [,,,clock,command]=path.split('/');
    if(clock==='both' && (command==='start'||command==='pause')){
@@ -186,7 +190,7 @@ with sync_playwright() as p:
     assert int(page.locator('#elementX').input_value())==drag_x+1
     page.locator('#saveLayout').click()
     page.wait_for_function('(x)=>window.__mock.layout.elements.home_score.x===x',arg=drag_x+1)
-    choose(page,'homeFoulStyle','number');page.locator('#saveLayout').click()
+    navigate(page,'control');choose(page,'homeFoulStyle','number');navigate(page,'editor')
     page.wait_for_function("window.__mock.layout.foul_style_home==='number'")
     navigate(page,'setup')
     page.screenshot(path=str(root/'.test/setup-desktop.png'),full_page=True)

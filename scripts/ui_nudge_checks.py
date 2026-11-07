@@ -44,8 +44,8 @@ def verify_fine_position(browser, offline_page, root):
                 maximum=1920 if index==0 else 1080
                 page.locator('#'+axis).fill(str(maximum));page.locator('#'+axis).blur()
                 activate(page.locator(f'[data-element-step="{axis}:1"]'));assert xy()[index]==maximum
-            # Selecting a movement step must not turn font/dot +/- into jumps.
-            for id in ['elementSize','foulDotsMax']:
+            # Selecting a movement step must not turn font +/- into jumps.
+            for id in ['elementSize']:
                 before=int(page.locator('#'+id).input_value())
                 activate(page.locator(f'[data-element-step="{id}:1"]'))
                 assert int(page.locator('#'+id).input_value())==before+1

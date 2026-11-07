@@ -28,6 +28,7 @@ window.createElementEditor=({getLayout,getSelected,selectField,mark,updateInspec
   $('freeTransform').setAttribute('aria-pressed',String(freeTransform));
   frame.classList.toggle('free-transform',!!transforming);
   $('editorSelectionLabel').textContent='Editing: '+(id==='background'?'Background graphic':names[id]||'Select an element');
+  $('editorModeHelp').textContent=id==='background'?'Drag the background or resize it with the corner handles. Select an element to use Free transform.':freeTransform?'Drag the selected element to move it; use the handles to resize. Done transforming keeps your draft.':'Select an element and drag to move. Choose Free transform to resize, or use the numeric controls.'+(!getLayout()?.background?' Import a graphic below to edit the background.':'');
   $('selectedTitle').textContent=id==='background'?'Background graphic':names[id]||'Select an element';
   document.querySelectorAll('[data-field]').forEach(b=>b.classList.toggle('selected',b.dataset.field===id));
   for(const node of [border,guide,...handles])node.hidden=!transforming;

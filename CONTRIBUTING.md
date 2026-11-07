@@ -42,6 +42,7 @@ Open `http://127.0.0.1:8790`. Add `--listen 127.0.0.1:8791` if another instance 
 python scripts/test_ui_offline.py
 python scripts/test_background_ui.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_elements_ui.py bin/fieldscoreboard-windows-console.exe
+python scripts/test_display_ui.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_http_transport.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_http.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_ocr.py bin/fieldscoreboard-windows-console.exe --ui
@@ -54,6 +55,7 @@ bash scripts/build.sh
 python scripts/test_ui_offline.py
 python scripts/test_background_ui.py bin/fieldscoreboard-linux
 python scripts/test_elements_ui.py bin/fieldscoreboard-linux
+python scripts/test_display_ui.py bin/fieldscoreboard-linux
 python scripts/test_http_transport.py bin/fieldscoreboard-linux
 python scripts/test_http.py bin/fieldscoreboard-linux
 python scripts/test_ocr.py bin/fieldscoreboard-linux --ui
@@ -73,6 +75,8 @@ On Linux, run `CGO_ENABLED=1 go test -race ./...`. Check each `internal/scoreboa
 The offline UI suite serves mocked API state, not OBS. The background and HTTP suites start isolated native processes with temporary configurations and generated artwork. Screenshots go under `.test/`. Inspect responsive screenshots, including 375 px and a maximized 1920×1080 viewport. Touch emulation is not physical touchscreen validation.
 
 The element suite checks all nine move/resize workflows, default normal-mode selection/dragging, explicit Free transform and exit transitions, draft preservation and shared editor/preview/overlay geometry. For a direct legacy compatibility comparison, run `python scripts/test_legacy_overlay.py <previous-native-binary> <current-native-binary>`; it compares generated legacy OBS screenshots using isolated processes. The HTTP transport suite sends 1,500 action requests without retries and fails on truncated/reset responses.
+
+The display suite checks all five responsive widths, editor toolbar modes and inspector keyboard order, immediate preview/overlay appearance, unfinished inputs, queued/delayed writes, stale layout saves, Discard, position reset, presets and restart. Go display tests cover authentication, strict validation, running clocks and seven-field ownership isolation. OCR browser checks include real simulated connection transitions and duplicate-request prevention.
 
 The OCR suite also runs `period_checks.py` and, with `--ui`, `ui_period_checks.py`: strict number/ordinal/Q recognition, independent formats, OT, API compatibility, presets, restart, touch radio choices and transformed editor/preview/overlay geometry. The OCR suite simulates seven fields, simultaneous/mixed ownership, API guards, atomic combined rejection, delayed takeover, pauses/resets, per-field rejection, loss/recovery and restart. Browser checks cover bottom ordering, all seven selectors, drafts and polling focus/scroll; omit `--ui` for a native HTTP-only run. For a running real ScoreSight with a configured Time field, use `python scripts/test_ocr.py <native-binary> --live-address http://127.0.0.1:18099`. It starts an isolated scoreboard, reads the source without modifying it and records live observations separately. Do not combine `--ui` with the live option: browser field fixtures belong to the simulator.
 

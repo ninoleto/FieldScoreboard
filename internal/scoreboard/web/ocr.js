@@ -2,11 +2,12 @@
 window.FieldOCRControls={create({api,begin,finish,apply,message}){
  const $=id=>document.getElementById(id),targets=['main','shot','home_score','away_score','home_fouls','away_fouls','period'];
  const el=(target,suffix)=>$('ocr-'+target+'-'+suffix);
- let addressDirty=false,connecting=false,current=null;
+ let addressDirty=false,connecting=false,current=null,wasConnected=false;
  const busy=new Set(),signatures={};
  $('ocrAddress').addEventListener('input',()=>{addressDirty=true;if(current)sync(current)});
  async function command(path,body){
   const key=body.target||'connection';
+  if(path==='connect'&&(connecting||current?.ocr?.connection==='connecting'))return;
   if(busy.has(key)&&path!=='manual')return;
   const epoch=begin();busy.add(key);if(path==='connect')connecting=true;if(current)sync(current);
   try{const state=await api('/api/ocr/'+path,'POST',body);if(path==='connect')addressDirty=false;apply(state,epoch)}
@@ -24,7 +25,13 @@ window.FieldOCRControls={create({api,begin,finish,apply,message}){
   const o=state.ocr||{address:'http://127.0.0.1:18099',fields:[],connection:'disconnected'},views=o.targets||{};
   const follows=target=>!!views[target]?.following,anyFollowing=targets.some(follows);
   if(!addressDirty&&document.activeElement!==$('ocrAddress'))$('ocrAddress').value=o.address;
-  $('ocrConnect').disabled=connecting||anyFollowing;
+  const pending=connecting||o.connection==='connecting';
+  if(o.connection==='connected')wasConnected=true;
+  const connectionState=pending?'connecting':o.connection||'disconnected';
+  const connect=$('ocrConnect');connect.disabled=pending||anyFollowing;
+  connect.dataset.connection=connectionState;connect.setAttribute('aria-busy',String(pending));
+  connect.textContent=({disconnected:'Not connected — Connect',connecting:'Connecting…',connected:'Connected — Check connection',error:wasConnected?'Connection lost — Reconnect':'Connection failed — Retry'})[connectionState]||'Connection unavailable — Reconnect';
+  $('ocrConnectHelp').textContent=pending?'Checking ScoreSight. Wait for the connection result.':anyFollowing?'Take manual control of every OCR field before checking or changing the connection.':addressDirty?'The address has unsaved changes. Check connection to use it; following is unavailable until then.':'Connection confirms access to ScoreSight only. Follow each field separately; camera freshness is not verified.';
   $('ocrAddress').disabled=anyFollowing;
   const connection={disconnected:'Not connected',connecting:'Connecting…',connected:'Connected to ScoreSight',error:'Connection lost / unavailable'};
   $('ocrConnection').textContent=connection[o.connection]||'Connection unavailable';

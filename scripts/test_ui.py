@@ -34,7 +34,7 @@ with sync_playwright() as p:
  page.locator('#saveProfile').click()
  page.wait_for_timeout(200)
  assert 'Demo profile' in page.locator('#profileSelect').inner_text()
- choose(page,'homeFoulStyle','number')
+ navigate(page,'control');choose(page,'homeFoulStyle','number');navigate(page,'editor')
  page.locator('#saveLayout').click()
  page.wait_for_timeout(200)
  assert requests.get(base+'/api/state').json()['layout']['foul_style_home']=='number'

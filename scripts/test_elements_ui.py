@@ -116,7 +116,7 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
         saved(page);t=request('/api/state')['layout']['elements']['home_fouls']['transform']
         request('/api/game',{'field':'home_fouls','value':30});page.wait_for_function("()=>document.querySelector('#editorStage [data-id=home_fouls]').textContent.includes('+25')")
         assert request('/api/state')['layout']['elements']['home_fouls']['transform']==t
-        choose(page,'homeFoulStyle','number');saved(page);overlay.wait_for_timeout(250);assert page.locator('#editorStage [data-id=home_fouls]').text_content()=='30';same(box(page,'home_fouls'),box(overlay,'home_fouls','overlayStage'))
+        navigate(page,'control');choose(page,'homeFoulStyle','number');page.wait_for_function("()=>document.getElementById('displayStatus').textContent===''");navigate(page,'editor');overlay.wait_for_timeout(250);assert page.locator('#editorStage [data-id=home_fouls]').text_content()=='30';same(box(page,'home_fouls'),box(overlay,'home_fouls','overlayStage'))
         # Drafts survive polling/navigation; invalid drafts block Save; Discard restores.
         original=request('/api/state')['layout'];page.locator('#elementWidth').fill('');page.wait_for_timeout(600);assert page.locator('#elementWidth').input_value()==''
         mode(page,True);mode(page,False);assert page.locator('#elementWidth').input_value()==''
