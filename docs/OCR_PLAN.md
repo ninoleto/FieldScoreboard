@@ -1,8 +1,8 @@
 # ScoreSight connection: current scope and future work
 
-## Local test.14 setup
+## Local test.15 setup
 
-Test.14 retains seven independent targets: **match clock, shot clock, home/away scores, home/away fouls and numeric period**, with older saved mappings preserved. It is a local development build; the published test.8 release remains unchanged. The entire ScoreSight section is at the **bottom of Live control**, after scores, fouls, period, Both clocks and both individual clock panels and Scoreboard display, before the footer. Polling does not scroll or move focus there.
+Test.15 retains seven independent targets: **match clock, shot clock, home/away scores, home/away fouls and numeric period**, with older saved mappings preserved. It is a local development build; the published test.8 release remains unchanged. The entire ScoreSight section is at the **bottom of Live control**, after scores, fouls, period, Both clocks and both individual clock panels and Scoreboard display, before the footer. Polling does not scroll or move focus there.
 
 1. Enter the ScoreSight address, default `http://127.0.0.1:18099`. The connection is made by the Field Scoreboard server, not the browser/tablet. A private LAN IP is also supported.
 2. Choose the red **Not connected — Connect** button. **Connecting…** prevents duplicate requests. A successful check shows green **Connected — Check connection**; failure/loss shows a red Retry/Reconnect label. The button updates with actual connection state, separately from field ownership and camera freshness. Take all fields manual before rechecking/changing the connection; the disabled action has a visible explanation. One connection monitors all discovered fields, without taking control. Suggested mappings are selected only when the corresponding names actually exist:
@@ -64,6 +64,6 @@ Connection generations and per-target revisions discard late responses only for 
 
 ## Evidence and future work
 
-See [test.14 interface verification](VERIFICATION-v0.1.0-test.14.md), [test.13 period verification](VERIFICATION-v0.1.0-test.13.md), historical [test.12 regression checks](VERIFICATION-v0.1.0-test.12.md), [test.11 verification](VERIFICATION-v0.1.0-test.11.md) and historical [test.9 verification](VERIFICATION-v0.1.0-test.9.md). On 2026-11-06 the operator reported match-clock OCR working in the home setup with test.9. **This is not venue validation.** Automated source pauses/resets/failures are simulations; Field Timer and the live source were not controlled by those tests.
+See [test.15 clock verification](VERIFICATION-v0.1.0-test.15.md), [test.14 interface verification](VERIFICATION-v0.1.0-test.14.md), [test.13 period verification](VERIFICATION-v0.1.0-test.13.md), historical [test.12 regression checks](VERIFICATION-v0.1.0-test.12.md), [test.11 verification](VERIFICATION-v0.1.0-test.11.md) and historical [test.9 verification](VERIFICATION-v0.1.0-test.9.md). On 2026-11-06 the operator reported match-clock OCR working in the home setup with test.9. **This is not venue validation.** Automated source pauses/resets/failures are simulations; Field Timer and the live source were not controlled by those tests.
 
 Future work: verified detection freshness if supplied upstream, confidence/stability policy, multiple sources and venue evaluation. Automatic sport rules and guaranteed OCR accuracy are not included.

@@ -321,3 +321,19 @@ button.touch-select-trigger{display:flex;width:100%;justify-content:space-betwee
 #ocrConnect[data-connection="connected"]{background:#176553;border-color:#9ef0ce}
 #ocrConnect[data-connection="connecting"]{background:#634d17;border-color:#f3d77a}
 #ocrConnectHelp{font-size:18px;color:#e5eff7}
+
+/* Live adjustments precede setup; Set remains the final action in each card. */
+.clock-card{display:flex;flex-direction:column;min-width:0}
+.clock-card .clock-presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+.clock-card .clock-presets button{min-width:72px;min-height:64px;padding:10px;font-size:22px;font-variant-numeric:tabular-nums}
+.clock-setup{border-top:1px solid #536b85;margin:20px 0;padding-top:18px}
+.clock-setup h4{font-size:22px;margin:0 0 10px;color:#e8f1fa}
+.clock-setup-help{font-size:16px;line-height:1.5;color:#bed0e0;margin:0}
+.clock-setup .clock-inputs{margin-top:16px}
+.clock-inputs .clock-format-group{min-width:0}
+.clock-setup .shot-presets{margin-top:18px}
+.clock-setup .clock-follow-note{font-size:16px;margin-top:12px}
+.clock-setup .shot-auto-hide{min-height:64px;font-size:18px}
+.clock-setup .shot-auto-hide small,.clock-setup .shot-visibility-note{font-size:16px}
+.clock-card>.clock-set{margin-top:auto;width:100%;min-height:72px;font-size:20px}
+@media(min-width:540px) and (max-width:720px),(min-width:1000px){.clock-card .clock-presets{grid-template-columns:repeat(4,minmax(0,1fr))}}
