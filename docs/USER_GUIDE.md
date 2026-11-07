@@ -1,6 +1,6 @@
 # Field Scoreboard user guide
 
-[Download and quick start](../README.md) · [Companion setup](COMPANION_SETUP.md) · [v0.1.1 verification](VERIFICATION-v0.1.1.md)
+[Download and quick start](../README.md) · [Companion setup](COMPANION_SETUP.md) · [v0.1.2 verification](VERIFICATION-v0.1.2.md)
 
 ## Starting and stopping
 
@@ -65,19 +65,23 @@ The coordinate and text-anchor explanation sits directly below X/Y, above Fine p
 
 Import PNG, JPG or WebP up to 15 MB and 8192 pixels per side. Original file bytes are kept unchanged. New imports default to centered **Fit entire image**, with **Lock aspect ratio** enabled.
 
-| Sizing | Result |
+**Sizing** has four large, always-visible buttons in a balanced 2 × 2 grid. Each has a prominent label and an explanation. The active preset uses the selected green color, bright border and checkmark. On narrow screens the buttons stack at full readable size. Tab reaches each button; Enter or Space applies it to the draft. With no background imported, all four remain visible but disabled.
+
+| Sizing button | Result |
 |---|---|
 | Fit entire image | Preserve proportions, show the complete image and center it. |
 | Fill canvas | Preserve proportions, cover the canvas and crop overflow. |
 | Original size | One image pixel per logical canvas pixel, centered. |
 | Stretch to canvas | Explicitly stretch to 1920×1080, allowing distortion. |
-| Custom | Shown after manually changing dimensions or position. |
 
-In **Background graphic**, edit Width, Height, X and Y using exact values or large ± buttons. With aspect lock enabled, changing either dimension updates the other from the original proportions. Unlock it for independent dimensions. X/Y is the top-left position; negative positions crop the image. **Center image** keeps its size; **Reset to fit** restores fit, centering and aspect lock. Original dimensions appear for reference.
+
+**Custom sizing** is a status, not a fifth button. Manual position/size edits, dragging, resizing or Center image switch to Custom and clear all preset highlights. Choosing a preset or Reset to fit restores the corresponding highlight. Changing the aspect-ratio switch alone keeps the current sizing mode. Fit and Reset to fit enable aspect lock; the other presets keep the current switch setting, as before. Discard and profile loading restore the saved sizing mode and selection, including Custom.
+
+The aspect-ratio switch and numeric controls remain below the sizing buttons. In **Background graphic**, edit Width, Height, X and Y using exact values or large ± buttons. With aspect lock enabled, changing either dimension updates the other from the original proportions. Unlock it for independent dimensions. X/Y is the top-left position; negative positions crop the image. **Center image** keeps its size; **Reset to fit** restores fit, centering and aspect lock. Original dimensions appear for reference.
 
 Use **Edit background — move & resize** beside the preview before dragging the graphic or resizing its generous corner handles. The active button reads **Finish editing background**. This explicit selection prevents moving a score or clock while editing the background. Keyboard arrows move the selected image (Shift for larger increments); focused corner handles support keyboard resizing. Escape or Finish editing background leaves this mode. The graphic always stays behind the scoreboard; selection borders and handles appear only in the editor. No sliders are used.
 
-**Save layout** applies pending changes, including import/removal, to the saved preview and OBS. **Discard** restores the saved layout and graphic. Incomplete numeric drafts survive polling and page navigation and must be corrected before saving. Named layout presets include the graphic reference, placement, original dimensions and aspect lock. Loading a preset changes the layout immediately after any unsaved-change confirmation, without replacing game values or clocks. Saving a preset first saves pending layout edits.
+**Save Layout** applies pending changes, including sizing presets and import/removal, to the saved preview and OBS. Sizing buttons update the editor draft immediately; the live preview and OBS keep the saved layout until Save Layout. **Discard** restores the saved layout and graphic. Incomplete numeric drafts survive polling and page navigation and must be corrected before saving. Named layout presets include the graphic reference, placement, original dimensions and aspect lock. Loading a preset changes the layout immediately after any unsaved-change confirmation, without replacing game values or clocks. Saving a preset first saves pending layout edits.
 
 **Restore Defaults** keeps the existing reset scope: it restores element X/Y and font sizes and removes optional element transforms in the draft. It preserves the background, other element styling, live display preferences, match data, clocks and saved profiles. Choose Save Layout to commit or Discard to return to the saved layout.
 
@@ -136,6 +140,6 @@ There is **no automatic backup/export feature**. Stop the application, then copy
 
 ## Known limits and feedback
 
-Field Scoreboard v0.1.1 supports Windows/Linux x64. Automatic competition rules are not implemented. Linux has no native tray, and OBS Browser Source availability depends on its installation. The release includes independent ScoreSight match/shot clock, home/away score/foul and numeric period mappings; NDI, direct OBS integration and dedicated live Companion feedback are absent. Timing displays can lag with browser/network load; rehearse before a broadcast.
+Field Scoreboard v0.1.2 supports Windows/Linux x64. Automatic competition rules are not implemented. Linux has no native tray, and OBS Browser Source availability depends on its installation. The release includes independent ScoreSight match/shot clock, home/away score/foul and numeric period mappings; NDI, direct OBS integration and dedicated live Companion feedback are absent. Timing displays can lag with browser/network load; rehearse before a broadcast.
 
-Report reproducible problems through [GitHub issues](https://github.com/ninoleto/FieldScoreboard/issues), including version, platform, launch mode and steps. Remove tokens, personal artwork and private configuration before attaching diagnostics. [Verification](VERIFICATION-v0.1.1.md) distinguishes automation from outstanding manual tests.
+Report reproducible problems through [GitHub issues](https://github.com/ninoleto/FieldScoreboard/issues), including version, platform, launch mode and steps. Remove tokens, personal artwork and private configuration before attaching diagnostics. [Verification](VERIFICATION-v0.1.2.md) distinguishes automation from outstanding manual tests.

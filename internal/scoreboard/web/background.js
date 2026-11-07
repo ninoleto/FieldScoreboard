@@ -57,11 +57,14 @@ window.createBackgroundEditor=({getLayout,mark,message})=>{
    if(!drafts.has(id))$(id).value=t?String(Math.round(t[key]*1000)/1000):'';
   }
   for(const b of document.querySelectorAll('[data-background-step]'))b.disabled=!ready;
-  for(const id of ['backgroundSizing','backgroundLock','centerBackground','fitBackground'])$(id).disabled=!ready;
+  for(const id of ['backgroundLock','centerBackground','fitBackground'])$(id).disabled=!ready;
   $('selectBackground').disabled=!ready;$('removeBackground').disabled=!l.background;
-  $('backgroundSizing').value=t?.mode||'fit';$('backgroundLock').checked=t?.lock_aspect??true;
-  const custom=$('backgroundSizing').querySelector('[value="custom"]');
-  if(custom.hidden!==(t?.mode!=='custom'))custom.hidden=t?.mode!=='custom';
+  for(const button of document.querySelectorAll('[data-background-preset]')){
+   button.disabled=!ready;
+   button.setAttribute('aria-pressed',String(ready&&button.dataset.backgroundPreset===t.mode));
+  }
+  $('backgroundSizingStatus').hidden=!ready||t.mode!=='custom';
+  $('backgroundLock').checked=t?.lock_aspect??true;
   $('backgroundOriginal').textContent=natural?`Original: ${natural.width} × ${natural.height} px`:(l.background?'Loading original dimensions…':'No background imported');
   $('backgroundName').textContent=l.background?'Image: '+l.background.slice(0,10)+'…':'';
   $('selectBackground').setAttribute('aria-pressed',String(selected));$('selectBackground').textContent=selected?'Finish editing background':'Edit background — move & resize';
@@ -99,7 +102,7 @@ window.createBackgroundEditor=({getLayout,mark,message})=>{
   const t=transform();if(!t)return;
   resetDrafts();setTransform(FieldStage.backgroundPreset(mode,t.original_width,t.original_height,mode==='fit'?true:t.lock_aspect));
  }
- $('backgroundSizing').addEventListener('change',()=>{if($('backgroundSizing').value!=='custom')preset($('backgroundSizing').value)});
+ for(const button of document.querySelectorAll('[data-background-preset]'))button.addEventListener('click',()=>preset(button.dataset.backgroundPreset));
  $('fitBackground').addEventListener('click',()=>preset('fit'));
  $('centerBackground').addEventListener('click',()=>{if(!commitDrafts())return;const t=transform();setTransform({...t,x:(1920-t.width)/2,y:(1080-t.height)/2,mode:'custom'});drafts.delete('backgroundX');drafts.delete('backgroundY');sync()});
  $('backgroundLock').addEventListener('change',()=>{const t=transform();setTransform({...t,lock_aspect:$('backgroundLock').checked})});

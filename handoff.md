@@ -1,30 +1,33 @@
 # Field Scoreboard handoff
 
-Prepared version: **v0.1.1**, based on released v0.1.0 commit `12e81de`, on **2026-11-07**, on local branch `prepare/v0.1.1`. This is a local review build; owner visual acceptance and publication are pending. Repository: [ninoleto/FieldScoreboard](https://github.com/ninoleto/FieldScoreboard). Field Timer was untouched.
+Prepared version: **v0.1.2**, continuing from local v0.1.1 commit `52f3458ae7a7e774de6d16d3c6135a07274a83da`, on **2026-11-07**, branch `prepare/v0.1.2`. This is a local visual-review build; acceptance/publication are pending. Repository: [ninoleto/FieldScoreboard](https://github.com/ninoleto/FieldScoreboard). Field Timer was untouched.
 
-Read [AGENTS.md](AGENTS.md), [user guide](docs/USER_GUIDE.md), [architecture](docs/ARCHITECTURE.md), [v0.1.1 notes](docs/RELEASE_NOTES-v0.1.1.md) and [verification](docs/VERIFICATION-v0.1.1.md). Historical notes/evidence remain unchanged.
+Read [AGENTS.md](AGENTS.md), [user guide](docs/USER_GUIDE.md), [architecture](docs/ARCHITECTURE.md), [v0.1.2 notes](docs/RELEASE_NOTES-v0.1.2.md) and [verification](docs/VERIFICATION-v0.1.2.md). Historical release notes/evidence remain unchanged.
 
-## Prepared changes
+## v0.1.2 changes
 
-- ScoreSight has separate Connect/Disconnect buttons and a backend-driven top-right status badge. `POST /api/ocr/disconnect` accepts `{}`, uses the existing authorization gate, cancels active source I/O, stops polling and invalidates the whole connection generation. All followed fields become manual with values held and followed clocks paused; independent manual clocks are unaffected. Address/mappings remain. Reconnect or explicit Connect retry requires new Follow OCR actions. Healthy/pending repeated Connect is idempotent. One worker remains; successful polling still does not establish camera freshness.
-- Layout profiles is its own full-width card below aligned preview/background and inspector cards. Top actions: Restore Defaults, Discard, Save Layout. Restore Defaults retains its existing draft position/font-size/transform reset scope. Coordinate/anchor help is immediately below X/Y; Free transform stays left and Edit background right. Large touch targets, responsive stacking and selected states remain.
-- Runtime/UI version is 0.1.1. User/developer guides and API details are updated. New Go/native/browser regression coverage exercises connection cancellation, retained values, explicit reconnect ownership and editor organization. Existing config/layout/profile schemas remain compatible.
+- Background Sizing is four always-visible buttons: Fit entire image, Fill canvas, Original size and Stretch to canvas. Each includes its requested explanatory text. Desktop uses a balanced 2×2 grid; narrow screens stack readable large targets. Selection uses the existing green color, border and checkmark.
+- Buttons call the unchanged background preset handler and shared sizing calculations. Their pressed state reflects the draft mode. Manual positioning/resizing or Center image shows Custom sizing with no selected preset; Custom is a status, not another action. No hidden sizing select remains.
+- Aspect lock/numeric controls stay below; Center image, Reset to fit, explicit background drag/resize, import/removal, legacy stretch, Save Layout/Discard and profiles retain their behavior. The editor displays drafts; live preview/OBS keep the saved layout until Save Layout. Both desktop editor cards still share top/bottom edges, with Layout profiles separately below.
+- Runtime/UI and current documentation now use 0.1.2. Tests cover all four presets and Custom transitions with portrait/landscape images, aspect locking, save/discard/profile restoration, saved preview/OBS geometry, touch/keyboard, small screens and zoom. Fresh binaries/packages are built, not renamed v0.1.1 artifacts.
 
-## Verification and review files
+## Preserved v0.1.1 behavior and checkpoint
 
-Go/JavaScript, Linux race, responsive/native UI, OCR and existing clock/layout regressions passed; detailed evidence and final package checks are tracked in [verification](docs/VERIFICATION-v0.1.1.md). Review delivery is under the workspace's `releases/v0.1.1/` outside the checkout: fresh Windows/Linux/source ZIPs, SHA256SUMS.txt, screenshots and a screenshot ZIP with its own checksum. Executables use isolated test configurations; production data and personal graphics are excluded.
+Keep `prepare/v0.1.1` at `52f3458` and all local `releases/v0.1.1/` files. The release-file hash manifest verifies earlier archives are unchanged. ScoreSight Connect/Disconnect, cancellation/generation safeguards, retained values, paused owned clocks and explicit following after reconnect remain unchanged. Successful polling still does not prove camera freshness. Top editor actions remain Restore Defaults, Discard, Save Layout with the same reset scope; coordinate help and toolbar order remain.
 
-The only corrected historical test assumption was a live-preview gap threshold reproduced identically in v0.1.0; the application live layout was unchanged. New screenshots show desktop/narrow editor arrangements, all connection states and browser zoom. OCR/touch automation is simulated, not evidence of camera or physical touchscreen testing.
+## Review delivery
 
-## Publication after visual acceptance
+Review files live under the workspace's `releases/v0.1.2/` outside the checkout: Windows/Linux/source ZIPs, SHA256SUMS.txt, updated screenshots and screenshot ZIP/checksum. Packages exclude runtime settings, credentials, caches and personal graphics. Tests use isolated configurations and generated artwork. See [verification](docs/VERIFICATION-v0.1.2.md) for final automated evidence and limitations.
 
-1. Obtain the owner's visual acceptance of these packages. This pass does not publish, tag or delete anything remotely.
-2. Integrate accepted tested source into main without force-pushing; publish **v0.1.1 as Latest**, normal release (`draft=false`, `prerelease=false`). Never overwrite an existing tag.
-3. Verify unauthenticated public access and download every attached package/checksum; compare hashes against the accepted local artifacts.
-4. Only after successful public verification, delete the **v0.1.0 GitHub release entry and attached assets** as requested. Preserve its Git tag, commit history and local archives, and leave unrelated releases/assets alone. This owner-requested scoped cleanup supersedes the earlier general instruction to preserve that release entry.
+## Publication after acceptance
 
-README download links still target the current public v0.1.0 release during review. On accepted publication, update them to v0.1.1 before removing the old release; if documentation is repackaged, retain tested executable bytes and regenerate/verify checksums. Record public verification without rewriting tagged history.
+1. Await the owner's visual acceptance. This review pass publishes, tags or deletes nothing remotely.
+2. Integrate accepted source into main without force-pushing and publish **v0.1.2 as Latest**, normal release (`draft=false`, `prerelease=false`). This supersedes the planned v0.1.1 publication; preserve its local checkpoint/packages.
+3. Verify unauthenticated public access and download every replacement asset; compare SHA-256 against accepted artifacts.
+4. Only after successful public verification, delete the **v0.1.0 GitHub release entry and attached assets**. Preserve its Git tag, history and local release archives, and leave unrelated releases alone.
 
-## Remaining operator checks
+README download links still target public v0.1.0 during review. Update them to v0.1.2 for accepted publication before deleting the old release entry. If documentation is repackaged, retain tested executable bytes and regenerate/verify checksums. Never rewrite tagged history.
 
-Visual acceptance is pending. Physical touchscreen, Windows tray interaction, production OBS, real seven-field capture pause/reset/freeze/loss, separate-machine LAN/firewall, Companion hardware and venue accuracy/latency remain operator checks. Preserve scoped historical test.8 Linux OBS Flatpak/test.9 home OCR reports and the test.10/test.11 HTTP reset investigation. Investigate any transport recurrence without retry masking. Automatic sport rules, NDI, direct OBS control and verified video freshness remain future work.
+## Operator checks
+
+Visual acceptance is pending. Physical touchscreen, Windows tray, production OBS, real seven-field capture pause/reset/freeze/loss, separate-machine LAN/firewall, Companion hardware and venue accuracy/latency remain operator checks. Historical test.8 Linux OBS Flatpak/test.9 home OCR reports remain scoped reports. Preserve the test.10/test.11 HTTP reset investigation and do not hide transport failures with retries. Automatic sport rules, NDI, direct OBS control and verified video freshness remain future work.

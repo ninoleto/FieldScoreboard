@@ -5,7 +5,7 @@
 <div class="app-shell">
 <header class="site-header">
  <div class="brand"><span class="brand-logo">FS</span><div><h1>Field Scoreboard</h1><p>Live sports scoring · Custom graphics · OBS ready</p></div></div>
- <div class="header-actions"><span class="connection" id="connected"><span class="connection-dot"></span><span id="connectionLabel">Connecting</span></span><span class="version">v0.1.1</span><button id="openOverlay" class="subtle-button">Open clean overlay <span aria-hidden="true">↗</span></button></div>
+ <div class="header-actions"><span class="connection" id="connected"><span class="connection-dot"></span><span id="connectionLabel">Connecting</span></span><span class="version">v0.1.2</span><button id="openOverlay" class="subtle-button">Open clean overlay <span aria-hidden="true">↗</span></button></div>
 </header>
 <div id="banner" class="banner hidden" role="alert"></div>
 <div id="authGate" class="auth-gate hidden"><div class="auth-card"><h2>Connect to Field Scoreboard</h2><p>For access from another computer, enter the API token from the scoreboard host.</p><form id="authForm"><label>API token<input type="password" id="authToken" required autocomplete="off"></label><button class="primary">Connect</button></form></div></div>
@@ -127,7 +127,12 @@
     <div class="card-heading"><h3 id="backgroundHeading">Background graphic</h3><span id="backgroundOriginal" class="background-original">No background imported</span></div>
     <div class="background-actions"><button id="importBackground" type="button" class="primary">Import PNG / JPG / WebP</button><input id="backgroundFile" type="file" accept="image/png,image/jpeg,image/webp" hidden><button id="removeBackground" type="button" class="outline">Remove graphic</button></div>
     <p class="small-text">Edits apply to preview and OBS after <strong>Save layout</strong>. Discard restores the saved graphic and its placement.</p>
-    <label class="background-sizing-label">Sizing<select id="backgroundSizing"><option value="fit">Fit entire image</option><option value="fill">Fill canvas</option><option value="original">Original size</option><option value="stretch">Stretch to canvas</option><option value="custom" disabled>Custom</option></select></label>
+    <fieldset class="background-sizing"><legend>Sizing</legend><div class="background-sizing-presets">
+     <button type="button" data-background-preset="fit" aria-pressed="false" disabled><strong>Fit entire image</strong><span>Show the whole image without stretching.</span></button>
+     <button type="button" data-background-preset="fill" aria-pressed="false" disabled><strong>Fill canvas</strong><span>Fill the canvas; edges may be cropped.</span></button>
+     <button type="button" data-background-preset="original" aria-pressed="false" disabled><strong>Original size</strong><span>Use the image’s original pixel dimensions.</span></button>
+     <button type="button" data-background-preset="stretch" aria-pressed="false" disabled><strong>Stretch to canvas</strong><span>Fill the canvas without preserving proportions.</span></button>
+    </div><p id="backgroundSizingStatus" class="background-sizing-status" role="status" hidden>Custom sizing</p></fieldset>
     <label class="toggle-control background-lock"><input id="backgroundLock" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span><span>Lock aspect ratio<small>Use the image’s original proportions when changing dimensions.</small></span></label>
     <div class="background-number-grid">
     <fieldset class="background-number-group number-group"><legend>Width <span>px</span></legend><div class="touch-stepper"><button type="button" data-background-step="backgroundWidth:-1" aria-label="Decrease background width">−</button><input id="backgroundWidth" type="number" inputmode="decimal" step="any" min=".01" max="15728640" aria-label="Background width in pixels"><button type="button" data-background-step="backgroundWidth:1" aria-label="Increase background width">+</button></div></fieldset>

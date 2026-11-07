@@ -41,6 +41,31 @@ def expected(mode,w,h):
     width,height=(1920,1080) if mode=='stretch' else (w*factor,h*factor)
     return {'width':width,'height':height,'x':(1920-width)/2,'y':(1080-height)/2}
 
+def sizing_state(page,mode):
+    buttons=page.locator('[data-background-preset]')
+    selected=page.locator('[data-background-preset][aria-pressed="true"]')
+    assert buttons.count()==4 and page.locator('#backgroundSizing,#backgroundSizingChoice').count()==0
+    if mode=='custom':
+        assert selected.count()==0
+        assert page.locator('#backgroundSizingStatus').is_visible()
+        assert page.locator('#backgroundSizingStatus').inner_text()=='Custom sizing'
+        page.wait_for_function('()=>[...document.querySelectorAll("[data-background-preset]")].every(e=>getComputedStyle(e).borderTopColor==="rgb(97, 123, 150)"&&getComputedStyle(e.querySelector("strong"),"::before").visibility==="hidden")')
+    else:
+        assert selected.count()==1 and selected.get_attribute('data-background-preset')==mode
+        assert page.locator('#backgroundSizingStatus').is_hidden()
+        page.wait_for_function('()=>{const e=document.querySelector("[data-background-preset][aria-pressed=true]");return e&&getComputedStyle(e).backgroundColor==="rgb(23, 101, 83)"}')
+        assert selected.locator('strong').evaluate('e=>getComputedStyle(e,"::before").visibility')=='visible'
+
+def select_sizing(page,mode):
+    page.locator(f'[data-background-preset="{mode}"]').click()
+    sizing_state(page,mode)
+
+def saved_rendering(page,overlay,layout):
+    transform=layout['background_transform']
+    for target,stage in [(page,'previewStage'),(overlay,'overlayStage')]:
+        target.wait_for_function('([stage,t,ref])=>{const e=document.querySelector(`#${stage} .stage-bg`);return e&&e.dataset.path.endsWith(ref)&&["x","y","width","height"].every(k=>Math.abs(parseFloat(e.style[{x:"left",y:"top"}[k]||k])-t[k])<.05)}',arg=[stage,transform,layout['background']])
+        close_rect(rect(target,stage),transform)
+
 def save(page):
     page.locator('#saveLayout').click()
     page.wait_for_function("()=>!document.getElementById('saveLayout').disabled && document.getElementById('unsavedBadge').classList.contains('hidden')")
@@ -67,6 +92,9 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
         page.on('pageerror',lambda e:errors.append(str(e)));page.goto(base);wait_state(page);navigate(page,'editor')
         overlay=browser.new_page(viewport={'width':1920,'height':1080});overlay.goto(base+'/overlay')
         originals=request('/api/state')['layout']['elements']
+        assert page.locator('[data-background-preset]:disabled').count()==4
+        assert page.locator('[data-background-preset][aria-pressed="true"]').count()==0
+        assert page.locator('#backgroundSizingStatus').is_hidden()
         for w,h in [(400,400),(400,800),(1600,200),(1920,1080)]:
             for ext in ['png','jpg','webp']:
                 art=fixture(w,h,ext);old=request('/api/state')['layout']
@@ -75,10 +103,38 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
                 page.wait_for_function("()=>!document.getElementById('importBackground').disabled")
                 assert request('/api/state')['layout']==old,'draft import went live'
                 assert page.locator('#backgroundLock').is_checked()
-                assert page.locator('#backgroundSizing').input_value()=='fit'
+                sizing_state(page,'fit')
                 close_rect(rect(page),expected('fit',w,h))
                 for mode in ['fill','original','stretch','fit']:
-                    choose(page,'backgroundSizing',mode);close_rect(rect(page),expected(mode,w,h))
+                    saved_before=request('/api/state')['layout']
+                    select_sizing(page,mode);close_rect(rect(page),expected(mode,w,h))
+                    assert request('/api/state')['layout']==saved_before,'preset draft changed saved layout'
+                    if saved_before['background']:
+                        saved_rendering(page,overlay,saved_before)
+                    save(page)
+                    saved_mode=request('/api/state')['layout']
+                    assert saved_mode['background_transform']['mode']==mode
+                    saved_rendering(page,overlay,saved_mode)
+                    if ext=='png' and (w,h) in [(400,800),(1600,200)]:
+                        # Restore each portrait/landscape preset from a profile,
+                        # then Discard a Custom draft without touching OBS.
+                        name=f'Sizing {w}x{h} {mode}'
+                        request('/api/profiles','POST',{'name':name,'action':'save'})
+                        select_sizing(page,'fit' if mode!='fit' else 'fill');save(page)
+                        request('/api/profiles','POST',{'name':name,'action':'load'})
+                        page.reload();wait_state(page);navigate(page,'editor')
+                        sizing_state(page,mode);close_rect(rect(page),expected(mode,w,h))
+                        set_number(page,'backgroundWidth',800)
+                        assert abs(float(page.locator('#backgroundHeight').input_value())-800*h/w)<.002
+                        sizing_state(page,'custom')
+                        page.locator('.background-lock').click();set_number(page,'backgroundWidth',900)
+                        assert abs(float(page.locator('#backgroundHeight').input_value())-800*h/w)<.002
+                        page.once('dialog',lambda d:d.accept());page.locator('#discardLayout').click()
+                        sizing_state(page,mode);assert page.locator('#backgroundLock').is_checked()
+                        set_number(page,'backgroundX',expected(mode,w,h)['x']+1)
+                        sizing_state(page,'custom');saved_rendering(page,overlay,saved_mode)
+                        page.once('dialog',lambda d:d.accept());page.locator('#discardLayout').click()
+                        sizing_state(page,mode);close_rect(rect(page),expected(mode,w,h))
                 save(page)
                 layout=request('/api/state')['layout'];transform=layout['background_transform']
                 assert transform['original_width']==w and transform['original_height']==h
@@ -96,29 +152,29 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
                     overlay.screenshot(path=str(root/'.test/background-transparent-overlay.png'),omit_background=True)
                     # A taller output viewport exposes overflow beyond the logical
                     # canvas: Fill must clip there, leaving letterboxes transparent.
-                    choose(page,'backgroundSizing','fill');save(page)
+                    select_sizing(page,'fill');save(page)
                     overlay.wait_for_function('()=>parseFloat(document.querySelector(".stage-bg").style.height)===1920')
                     overlay.set_viewport_size({'width':1920,'height':1400});overlay.wait_for_timeout(100)
                     clipped=Image.open(BytesIO(overlay.screenshot(omit_background=True)))
                     assert clipped.getpixel((960,100))[3]==0 and clipped.getpixel((960,1300))[3]==0,'Fill escaped the logical canvas'
-                    overlay.set_viewport_size({'width':1920,'height':1080});choose(page,'backgroundSizing','fit');save(page)
+                    overlay.set_viewport_size({'width':1920,'height':1080});select_sizing(page,'fit');save(page)
                 print('Import/defaults/modes/original bytes/editor-preview-overlay:',w,h,ext,'PASS',flush=True)
 
         # Dedicated square fixture for predictable resize and drag geometry.
         art=fixture(400,400,'png');page.locator('#backgroundFile').set_input_files(art)
         page.wait_for_function("()=>document.getElementById('backgroundOriginal').textContent==='Original: 400 × 400 px' && !document.getElementById('importBackground').disabled")
-        choose(page,'backgroundSizing','original');save(page)
+        select_sizing(page,'original');save(page)
         set_number(page,'backgroundWidth',800)
         assert page.locator('#backgroundHeight').input_value()=='800'
-        assert page.locator('#backgroundSizing').input_value()=='custom'
+        sizing_state(page,'custom')
         set_number(page,'backgroundHeight',500)
         assert page.locator('#backgroundWidth').input_value()=='500'
         page.locator('.background-lock').click();set_number(page,'backgroundWidth',700)
         assert page.locator('#backgroundHeight').input_value()=='500'
         set_number(page,'backgroundX',-60);set_number(page,'backgroundY',125)
         close_rect(rect(page),{'x':-60,'y':125,'width':700,'height':500})
-        page.locator('#centerBackground').click();close_rect(rect(page),{'x':610,'y':290,'width':700,'height':500})
-        page.locator('#fitBackground').click();assert page.locator('#backgroundLock').is_checked()
+        page.locator('#centerBackground').click();sizing_state(page,'custom');close_rect(rect(page),{'x':610,'y':290,'width':700,'height':500})
+        page.locator('#fitBackground').click();assert page.locator('#backgroundLock').is_checked();sizing_state(page,'fit')
         close_rect(rect(page),expected('fit',400,400))
         # Polling and navigation must retain unfinished numeric edits.
         page.locator('#backgroundWidth').fill('');navigate(page,'control');page.wait_for_timeout(650);navigate(page,'editor')
@@ -127,18 +183,19 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
         assert request('/api/state')['layout']==previous
         page.once('dialog',lambda d:d.accept());page.locator('#discardLayout').click()
         close_rect(rect(page),previous['background_transform'])
-        choose(page,'backgroundSizing','original');page.locator('#selectBackground').click()
+        select_sizing(page,'original');page.locator('#selectBackground').click()
         assert page.locator('.background-resize-handle:visible').count()==4
         assert page.locator('.background-resize-handle').first.bounding_box()['width']==56
+        page.locator('.background-drag-surface').scroll_into_view_if_needed()
         before=rect(page);surface=page.locator('.background-drag-surface').bounding_box()
         scale=page.locator('#editorStage').bounding_box()['width']/1920
         page.mouse.move(surface['x']+surface['width']/2,surface['y']+surface['height']/2);page.mouse.down();page.mouse.move(surface['x']+surface['width']/2+45,surface['y']+surface['height']/2+30,steps=5);page.mouse.up()
-        after=rect(page);assert abs(after['x']-before['x']-45/scale)<.1;assert abs(after['y']-before['y']-30/scale)<.1
+        sizing_state(page,'custom');after=rect(page);assert abs(after['x']-before['x']-45/scale)<.1;assert abs(after['y']-before['y']-30/scale)<.1
         before=after;handle=page.locator('[data-corner="se"]').bounding_box()
         page.mouse.move(handle['x']+28,handle['y']+28);page.mouse.down();page.mouse.move(handle['x']+68,handle['y']+48,steps=5);page.mouse.up()
         after=rect(page);assert abs(after['width']/after['height']-1)<.0001;assert after['width']>before['width']
         close_rect({'x':after['x'],'y':after['y'],'width':before['width'],'height':before['height']},before)
-        page.locator('.background-lock').click();handle=page.locator('[data-corner="se"]').bounding_box()
+        page.locator('.background-lock').click();page.locator('[data-corner="se"]').scroll_into_view_if_needed();handle=page.locator('[data-corner="se"]').bounding_box()
         page.mouse.move(handle['x']+28,handle['y']+28);page.mouse.down();page.mouse.move(handle['x']+68,handle['y']+28,steps=5);page.mouse.up()
         assert rect(page)['width']>rect(page)['height']+20
         save(page);assert request('/api/state')['layout']['elements']==originals,'background gesture moved scoreboard elements'
@@ -160,6 +217,9 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
         page.once('dialog',lambda d:d.accept());page.locator('#removeBackground').click()
         assert request('/api/state')['layout']==saved
         assert page.locator('#editorStage .stage-bg').is_hidden()
+        assert page.locator('[data-background-preset]:disabled').count()==4
+        assert page.locator('[data-background-preset][aria-pressed="true"]').count()==0
+        assert page.locator('#backgroundSizingStatus').is_hidden()
         page.once('dialog',lambda d:d.accept());page.locator('#discardLayout').click()
         close_rect(rect(page),saved['background_transform'])
         page.locator('#backgroundFile').set_input_files(fixture(400,800,'jpg'))
@@ -172,7 +232,7 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
         stored=request('/api/state')['layout']['background_transform']
         page.locator('#fitBackground').click();save(page);choose(page,'profileSelect','Background placement');page.locator('#loadProfile').click()
         page.wait_for_function('(x)=>parseFloat(document.getElementById("backgroundX").value)===Math.round(x*1000)/1000',arg=stored['x'])
-        close_rect(rect(page),stored)
+        close_rect(rect(page),stored);sizing_state(page,'custom')
         # New edits while a layout PUT is in flight survive its response.
         set_number(page,'backgroundWidth',650)
         def slow_save(route):
@@ -187,33 +247,52 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
         # Existing legacy layouts remain stretched until explicitly edited.
         legacy=request('/api/state')['layout'];legacy.pop('background_transform')
         request('/api/layout','PUT',legacy);page.reload();wait_state(page);navigate(page,'editor')
-        page.wait_for_function("()=>document.getElementById('backgroundSizing').value==='stretch'")
+        page.wait_for_function("()=>document.querySelector('[data-background-preset=stretch]').getAttribute('aria-pressed')==='true'");sizing_state(page,'stretch')
         close_rect(rect(page),{'x':0,'y':0,'width':1920,'height':1080})
         assert 'background_transform' not in request('/api/state')['layout']
         page.locator('#saveLayout').click();page.wait_for_timeout(350)
         assert 'background_transform' not in request('/api/state')['layout']
         set_number(page,'backgroundWidth',900);assert page.locator('#backgroundHeight').input_value()=='900'
         save(page)
-        # Responsive and keyboard/mouse access to the new twelfth choice dialog.
+        # Always-visible sizing actions retain readable text and full targets.
         final=request('/api/state')['layout']['background_transform']
         for width in [375,500,1000,1440,1920]:
-            page.set_viewport_size({'width':width,'height':1000});page.wait_for_timeout(100)
-            no_overflow(page);close_rect(rect(page),final)
+            page.set_viewport_size({'width':width,'height':1080});page.wait_for_timeout(100)
+            no_overflow(page);close_rect(rect(page),final);sizing_state(page,'custom')
             assert request('/api/state')['layout']['background_transform']==final
             for id in ['backgroundWidth','backgroundHeight','backgroundX','backgroundY']:assert page.locator('#'+id).bounding_box()['height']==64
-            page.locator('#backgroundSizingChoice').click();page.keyboard.press('End')
-            assert page.locator('#touchChoiceList [aria-selected="true"]').inner_text()=='Custom'
-            assert page.locator('#touchChoiceList [role="option"]:focus').inner_text()=='Stretch to canvas'
-            for row in page.locator('#touchChoiceList [role="option"]').all():
-                assert row.bounding_box()['height']>=56
-                assert row.evaluate('e=>parseFloat(getComputedStyle(e).fontSize)')>=18
-            assert page.locator('#backgroundSizing').evaluate('e=>e.tabIndex===-1 && getComputedStyle(e).display==="none"')
-            assert page.locator('select').count()==19  # Includes the ScoreSight field dialog.
+            buttons=page.locator('[data-background-preset]')
+            boxes=[b.bounding_box() for b in buttons.all()]
+            for b in buttons.all():
+                assert b.is_visible() and b.bounding_box()['height']>=124
+                assert b.locator('strong').evaluate('e=>parseFloat(getComputedStyle(e).fontSize)')>=20
+                assert b.locator('span').evaluate('e=>parseFloat(getComputedStyle(e).fontSize)')>=16
+            if width>650:
+                assert abs(boxes[0]['y']-boxes[1]['y'])<1 and abs(boxes[2]['y']-boxes[3]['y'])<1
+                assert boxes[2]['y']>=boxes[0]['y']+boxes[0]['height']+15
+                assert max(b['height'] for b in boxes)-min(b['height'] for b in boxes)<1
+            else:
+                for a,b in zip(boxes,boxes[1:]):assert b['y']>=a['y']+a['height']+15
+            assert page.locator('.background-lock').bounding_box()['y']>=boxes[-1]['y']+boxes[-1]['height']
+            buttons.first.focus()
+            for mode in ('fit','fill','original','stretch'):
+                assert page.evaluate('document.activeElement.dataset.backgroundPreset')==mode
+                page.keyboard.press('Space');sizing_state(page,mode)
+                assert page.locator('#touchChoiceDialog').is_hidden()
+                page.keyboard.press('Tab')
+            page.once('dialog',lambda d:d.accept());page.locator('#discardLayout').click();sizing_state(page,'custom')
+            assert page.locator('select').count()==18
             assert page.evaluate('()=>{const ids=[...document.querySelectorAll("[id]")].map(e=>e.id);return new Set(ids).size===ids.length}')
-            page.keyboard.press('Escape');assert page.locator('#backgroundSizingChoice').evaluate('e=>e===document.activeElement')
+            left=page.locator('.editor-card').bounding_box();right=page.locator('.inspector').bounding_box();profiles=page.locator('.layout-profiles').bounding_box()
+            if width>=1440:
+                assert abs(left['y']-right['y'])<1 and abs(left['y']+left['height']-right['y']-right['height'])<1
+            assert profiles['y']>max(left['y']+left['height'],right['y']+right['height'])
             page.screenshot(path=str(root/f'.test/background-editor-{width}px.png'),full_page=True)
         # Real browser touch events move the selected graphic, not the score.
         touch=browser.new_page(viewport={'width':1000,'height':900},has_touch=True);touch.goto(base);wait_state(touch);navigate(touch,'editor')
+        for mode in ('fill','original','stretch','fit'):
+            touch.locator(f'[data-background-preset="{mode}"]').tap();sizing_state(touch,mode)
+        touch.once('dialog',lambda d:d.accept());touch.locator('#discardLayout').click();sizing_state(touch,'custom')
         touch.locator('#selectBackground').tap();surface=touch.locator('.background-drag-surface');surface.scroll_into_view_if_needed();b=surface.bounding_box()
         x=b['x']+b['width']/2;y=b['y']+b['height']/2;before=rect(touch);scale=touch.locator('#editorStage').bounding_box()['width']/1920
         cdp=touch.context.new_cdp_session(touch);cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':[{'x':x,'y':y}]})
@@ -235,10 +314,10 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
                 zoom_page=context.pages[0];zoom_page.goto(base);wait_state(zoom_page);navigate(zoom_page,'editor')
                 assert zoom_page.evaluate('innerWidth')==1920/zoom
                 no_overflow(zoom_page);close_rect(rect(zoom_page),final)
-                zoom_page.locator('#backgroundSizingChoice').click()
-                assert zoom_page.locator('#touchChoiceDialog').evaluate('e=>{const r=e.getBoundingClientRect();return r.top>=0&&r.bottom<=innerHeight}')
-                zoom_page.evaluate('scrollTo(0,0)');zoom_page.screenshot(path=str(root/f'.test/background-zoom-{zoom*100}.png'))
-                zoom_page.keyboard.press('Escape');assert zoom_page.locator('#backgroundSizingChoice').evaluate('e=>e===document.activeElement')
+                for mode in ('fill','original','stretch','fit'):
+                    select_sizing(zoom_page,mode);no_overflow(zoom_page)
+                zoom_page.once('dialog',lambda d:d.accept());zoom_page.locator('#discardLayout').click();sizing_state(zoom_page,'custom')
+                zoom_page.evaluate('scrollTo(0,0)');zoom_page.screenshot(path=str(root/f'.test/background-zoom-{zoom*100}.png'),full_page=True)
                 assert request('/api/state')['layout']['background_transform']==final
                 context.close()
         # Restart reads the exact saved transform and keeps clocks Ready.
