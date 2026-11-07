@@ -19,6 +19,22 @@ def box(page,id,stage='editorStage'):
     return page.evaluate('''([stage,id])=>FieldStage.elementBox(document.getElementById(stage),id)''',[stage,id])
 def same(a,b,tolerance=.15):
     for k in ('left','top','width','height'):assert abs(a[k]-b[k])<tolerance,(k,a,b)
+
+def mode(page,enabled,touch=False):
+    button=page.locator('#freeTransform')
+    if (button.get_attribute('aria-pressed')=='true')!=enabled:
+        if touch:button.tap()
+        else:button.click()
+    assert button.text_content()==('Done transforming' if enabled else 'Free transform')
+    assert button.get_attribute('aria-pressed')==str(enabled).lower()
+    assert button.bounding_box()['height']>=64
+    if not enabled:
+        assert page.locator('.element-resize-handle:visible,.element-handle-guide:visible,.element-selection-border:visible').count()==0
+        assert page.locator('.element-resize-handle').evaluate_all("nodes=>nodes.every(n=>getComputedStyle(n).display==='none'&&n.getClientRects().length===0)")
+
+def normal(page):
+    assert page.locator('#freeTransform').get_attribute('aria-pressed')=='false'
+    mode(page,False)
 def drag(page,locator,dx,dy,touch=False):
     page.locator('#editorFrame').scroll_into_view_if_needed();r=locator.bounding_box();x=r['x']+r['width']/2;y=r['y']+r['height']/2
     if touch:
@@ -45,16 +61,23 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
         overlay=browser.new_page(viewport={'width':1920,'height':1080});overlay.goto(base+'/overlay');overlay.wait_for_selector('.stage-element')
         legacy=request('/api/state')['layout'];ids=list(legacy['elements'])
         assert all('transform' not in el for el in legacy['elements'].values())
+        normal(page)
+        # Mode switches are presentation-only: no save, dirty flag or geometry change.
+        original=box(page,'main_clock');mode(page,True);page.wait_for_timeout(600);mode(page,False)
+        same(original,box(page,'main_clock'));assert request('/api/state')['layout']==legacy
+        assert page.locator('#unsavedBadge').is_hidden()
         for id in ids:
             original=box(page,id);same(original,box(overlay,id,'overlayStage'))
             page.locator(f'[data-field="{id}"]').click()
             assert page.locator('#editorSelectionLabel').text_content().startswith('Editing: ')
-            assert page.locator('.element-resize-handle:visible').count()==4
+            normal(page)
             assert page.locator('#unsavedBadge').is_hidden(),'selecting element changed legacy layout'
             number(page,'elementX',600);number(page,'elementY',400)
             before=box(page,id);ratio=page.locator('#editorStage').bounding_box()['width']/1920
             drag(page,page.locator(f'#editorStage [data-id="{id}"]'),40*ratio,25*ratio)
             after=box(page,id);assert abs(after['left']-before['left']-40)<1.1 and abs(after['top']-before['top']-25)<1.1,(id,before,after)
+            normal(page);mode(page,True)
+            assert page.locator('.element-resize-handle:visible').count()==4
             drag(page,page.locator('.element-resize-handle[data-edge="se"]'),30,20)
             resized=box(page,id);assert resized['width']>after['width'] and abs(resized['width']/after['width']-resized['height']/after['height'])<.001
             # Side handles visibly stretch content only while unlocked.
@@ -66,6 +89,8 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
                 assert abs(b['left']+b['width']*fraction-float(page.locator('#elementX').input_value()))<.1,(id,alignment,b)
             page.locator('#elementAspect').focus();page.keyboard.press('Space');number(page,'elementWidth',180)
             assert abs(box(page,id)['width']-180)<.05
+            draft=box(page,id);mode(page,False);same(draft,box(page,id))
+            assert page.locator('#unsavedBadge').is_visible()
             saved(page);overlay.wait_for_timeout(250);same(box(page,id),box(overlay,id,'overlayStage'))
             # Reset drops optional properties and recreates legacy dimensions.
             page.locator('#resetElementSize').click();number(page,'elementX',legacy['elements'][id]['x']);number(page,'elementY',legacy['elements'][id]['y'])
@@ -94,19 +119,25 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
         choose(page,'homeFoulStyle','number');saved(page);overlay.wait_for_timeout(250);assert page.locator('#editorStage [data-id=home_fouls]').text_content()=='30';same(box(page,'home_fouls'),box(overlay,'home_fouls','overlayStage'))
         # Drafts survive polling/navigation; invalid drafts block Save; Discard restores.
         original=request('/api/state')['layout'];page.locator('#elementWidth').fill('');page.wait_for_timeout(600);assert page.locator('#elementWidth').input_value()==''
-        navigate(page,'control');navigate(page,'editor');assert page.locator('#elementWidth').input_value()==''
+        mode(page,True);mode(page,False);assert page.locator('#elementWidth').input_value()==''
+        mode(page,True);navigate(page,'control');navigate(page,'editor');normal(page);assert page.locator('#elementWidth').input_value()==''
         page.locator('#saveLayout').click();assert request('/api/state')['layout']==original
-        page.once('dialog',lambda d:d.accept());page.locator('#discardLayout').click();same(box(page,'home_fouls'),box(overlay,'home_fouls','overlayStage'))
+        mode(page,True);page.once('dialog',lambda d:d.accept());page.locator('#discardLayout').click();same(box(page,'home_fouls'),box(overlay,'home_fouls','overlayStage'))
+        assert page.locator('#unsavedBadge').is_hidden();mode(page,False)
         # Presets include transforms but do not restore game values.
-        request('/api/profiles',{'name':'Element transforms','action':'save'});number(page,'elementWidth',180);saved(page)
+        request('/api/profiles',{'name':'Element transforms','action':'save'});number(page,'elementWidth',180);mode(page,True);saved(page)
+        assert page.locator('#freeTransform').get_attribute('aria-pressed')=='true';mode(page,False)
         request('/api/profiles',{'name':'Element transforms','action':'load'});page.wait_for_timeout(400)
         assert request('/api/state')['layout']==original and request('/api/state')['home_score']==10
         buf=io.BytesIO();Image.new('RGBA',(64,64),(0,100,70,120)).save(buf,format='PNG')
         with urlopen(Request(base+'/api/background',data=buf.getvalue(),headers={'Content-Type':'image/png'})) as response:json.load(response)
-        page.wait_for_timeout(500);page.locator('#selectBackground').click()
+        page.wait_for_timeout(500);mode(page,True);page.locator('#selectBackground').click()
         assert page.locator('.element-resize-handle:visible').count()==0 and page.locator('.background-resize-handle:visible').count()==4
         assert page.locator('#editorSelectionLabel').text_content()=='Editing: Background graphic'
-        page.locator('[data-field="main_clock"]').click();assert page.locator('.background-resize-handle:visible').count()==0 and page.locator('.element-resize-handle:visible').count()==4
+        normal(page);assert page.locator('#freeTransform').is_disabled()
+        page.locator('#selectBackground').click();normal(page);assert page.locator('#freeTransform').is_enabled()
+        mode(page,True);page.locator('[data-field="main_clock"]').click();normal(page)
+        assert page.locator('.background-resize-handle:visible').count()==0
         # A readable test layout for screenshot and mouse/touch/zoom checks.
         request('/api/game',{'field':'home_name','value':'HOME'});visual=request('/api/state')['layout']
         for i,id in enumerate(ids):
@@ -116,14 +147,25 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
             context=browser.new_context(viewport={'width':width,'height':1080//zoom},has_touch=touch,device_scale_factor=zoom)
             test=context.new_page();test.on('pageerror',lambda e:errors.append(str(e)));test.goto(base);test.wait_for_function("()=>document.getElementById('connected').classList.contains('ok')");navigate(test,'editor')
             test.locator('[data-field="home_score"]').click();number(test,'elementX',800);number(test,'elementY',550)
+            normal(test)
             ratio=test.locator('#editorStage').bounding_box()['width']/1920;before=box(test,'home_score');drag(test,test.locator('#editorStage [data-id=home_score]'),10,8,touch)
             after=box(test,'home_score');assert abs(after['left']-before['left']-10/ratio)<1.1 and abs(after['top']-before['top']-8/ratio)<1.1
+            test.locator('#editorFrame').scroll_into_view_if_needed();test.screenshot(path=str(root/f'.test/elements12-normal-{width}-zoom{zoom}.png'))
+            mode(test,True,touch)
             drag(test,test.locator('.element-resize-handle[data-edge="se"]'),15,10,touch);assert box(test,'home_score')['width']>after['width']
             for h in test.locator('.element-resize-handle:visible').all():assert h.bounding_box()['width']==56 and h.bounding_box()['height']==56
-            no_overflow(test);test.locator('#editorFrame').scroll_into_view_if_needed();test.screenshot(path=str(root/f'.test/elements11-{width}-zoom{zoom}.png'))
-            test.locator('#editorFrame').screenshot(path=str(root/f'.test/elements11-canvas-{width}-zoom{zoom}.png'))
+            no_overflow(test);test.locator('#editorFrame').scroll_into_view_if_needed();test.screenshot(path=str(root/f'.test/elements12-{width}-zoom{zoom}.png'))
+            test.locator('#editorFrame').screenshot(path=str(root/f'.test/elements12-canvas-{width}-zoom{zoom}.png'))
+            # Selecting a different rendered field exits mode; hidden handles never
+            # intercept the next mouse/touch selection and position gesture.
+            drag(test,test.locator('#editorStage [data-id=away_fouls]'),3,2,touch);normal(test)
+            assert test.locator('#editorSelectionLabel').text_content()=='Editing: Away fouls'
+            mode(test,True,touch);draft=box(test,'away_fouls');mode(test,False,touch);same(draft,box(test,'away_fouls'))
+            mode(test,True,touch);navigate(test,'setup');navigate(test,'editor');normal(test);same(draft,box(test,'away_fouls'))
             saved(test);overlay.wait_for_timeout(250);editorboxes={id:box(test,id) for id in ids};navigate(test,'control')
             for id in ids:same(editorboxes[id],box(test,id,'previewStage'));same(editorboxes[id],box(overlay,id,'overlayStage'))
+            navigate(test,'editor');normal(test);mode(test,True,touch);test.reload();test.wait_for_function("()=>document.getElementById('connected').classList.contains('ok')");navigate(test,'editor');normal(test)
+            for id in ids:same(editorboxes[id],box(test,id))
             assert overlay.locator('.element-resize-handle,.element-selection-border').count()==0
             assert test.evaluate("()=>document.getElementById('tab-control').lastElementChild.matches('.ocr-card')")
             print('Element mouse/touch/geometry/preview/OBS/responsive:',width,'zoom',zoom,'PASS',flush=True);context.close()
@@ -134,6 +176,7 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
                 test=context.pages[0];test.goto(base);test.wait_for_function("()=>document.getElementById('connected').classList.contains('ok')");navigate(test,'editor')
                 assert test.evaluate('innerWidth')==1920/zoom
                 test.locator('[data-field="home_score"]').click();number(test,'elementX',800);number(test,'elementY',500)
+                normal(test);mode(test,True)
                 before=box(test,'home_score');drag(test,test.locator('.element-resize-handle[data-edge="nw"]'),-8,-6);after=box(test,'home_score')
                 assert after['width']>before['width'] and abs(after['left']+after['width']-before['left']-before['width'])<1.1
                 assert abs(after['top']+after['height']-before['top']-before['height'])<1.1

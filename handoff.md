@@ -1,32 +1,29 @@
 # Field Scoreboard handoff
 
-Checkpoint: **2026-11-07**, **v0.1.0-test.11**, local development build on `ocr/scoresight-match-clock`. Started from clean test.10 commit `112b48f`; earlier source history and packages are preserved. Field Timer and production configuration were untouched.
+Checkpoint: **2026-11-07**, **v0.1.0-test.12**, local development build on `ocr/scoresight-match-clock`. Started from clean test.11 commit `b7d2716`; existing source history and earlier packages are preserved. Field Timer and production configuration were untouched.
 
-**Do not publish test.11. After user acceptance, the intended public version is v0.1.0 as a normal release, not another public test/prerelease.** Published [test.8](https://github.com/ninoleto/FieldScoreboard/releases/tag/v0.1.0-test.8) stays unchanged until a separately authorized release task.
+**Do not publish test.12. After user acceptance, the intended public version is v0.1.0 as a normal release, not another public test/prerelease.** Published [test.8](https://github.com/ninoleto/FieldScoreboard/releases/tag/v0.1.0-test.8) stays unchanged until a separately authorized release task.
 
-Read [AGENTS.md](AGENTS.md) first, then the [architecture](docs/ARCHITECTURE.md), [release notes](docs/RELEASE_NOTES-v0.1.0-test.11.md) and [verification](docs/VERIFICATION-v0.1.0-test.11.md).
+Read [AGENTS.md](AGENTS.md), [architecture](docs/ARCHITECTURE.md), [release notes](docs/RELEASE_NOTES-v0.1.0-test.12.md) and [verification](docs/VERIFICATION-v0.1.0-test.12.md). Historical [test.11 evidence](docs/VERIFICATION-v0.1.0-test.11.md) remains unchanged.
 
-## Completed
+## Completed change
 
-- Seven independent OCR targets: match/shot clocks, home/away scores, home/away fouls, numeric period. Actual-name suggestions only; absent sources stay unconfigured/manual. One connection/worker and existing large card selectors, per-field status/hold/takeover, delayed-response protection and manual restart.
-- Foul limits 0–30 and period limits 1–20. Invalid readings hold rather than clear/clamp. Fouls drive both numeric and dot styles. Numeric period updates preserve the OT flag; explicit OT off reveals the latest saved period. Manual ±/exact/API/Companion ownership guards and atomic game-reset rejection cover every overwritten field.
-- OCR stays last in Live control. Only its outer card has the neutral #141414 background/subtle border; inner cards/controls/status colors are retained. Polling does not scroll or steal focus.
-- Direct move/resize for all nine elements. Clear selected-element label, editor-only actual bounds and 56 px handles; proportional corners by default, unlocked side handles, precise Width/Height ± fields and Reset element size. Small fields use an expanded dotted handle guide without changing actual geometry. Field/background selection is mutually exclusive. No sliders.
-- Optional element transform stores scale_x/scale_y/lock_aspect (.05–20). Actual text/dots scale around the alignment anchor; values grow naturally without a fixed clipping box. Legacy OBS output is unchanged without metadata. Shared renderer, logical 1920×1080 geometry, fonts/color/bold/visibility, nudge controls, polling-safe drafts, Save/Discard, presets, restart and deep-copy validation are retained.
-- Investigated the test.10 Windows reset when it recurred. Unread optional action bodies reproduced resets/aborts on closing connections. Bounded body consumption now precedes action mutation/reply, after existing authentication. Empty/optional-body semantics remain compatible; no retries hide failures. Historical verification remains unchanged and the new record contains before/after evidence.
+- Element Free transform is an explicit, optional editor mode. Normal mode is the default: select and drag fields with only a thin outline. Hidden handles/guides/bounds have no hit area or keyboard stops. Numeric position, size, font and aspect controls remain available, and saved/draft transforms still render.
+- The prominent 64 px Free transform button shows the existing 56 px handles, an active style and Done transforming label. Corners remain proportional by default; unlocked side handles resize independently. No sliders.
+- Done, another selected element, background editing, leaving Layout editor and reload exit the mode. It is ephemeral browser state, absent from configuration/presets. Mode changes never save, discard or reset layout edits; existing Save layout / Discard remains authoritative. Background editing retains its separate explicit selection workflow.
+- Shared renderer, logical coordinates, element transform schema, seven OCR targets/ownership/OT/atomic reset guards, bottom dark OCR container, clocks, APIs, authentication and the bounded HTTP action-body fix are unchanged.
 
-## Source and checks
+## Source and verification
 
-OCR changes: `ocr.go`, engine guards, `web/ocr.js`/cards, `ocr_seven_test.go`, `ocr_seven_checks.py`. Element changes: optional model transform/deep cloning, `web/render.js`, new `web/elements.js`, editor integration/CSS and `element_transform_test.go`/`test_elements_ui.py`. Transport fix: `consumeActionBody` in `server.go`, `action_body_test.go`, `test_http_transport.py`.
+Focused changes are in `web/elements.js`, editor integration in `web/app.js`, button/help markup and scoped CSS. `scripts/test_elements_ui.py` covers normal and transform modes, transition/draft behavior, mouse/touch, responsive/zoom handling and shared editor/preview/OBS geometry. Application version and HTTP smoke expectation are test.12.
 
-Windows tests/vet/JS syntax and all three cross-builds passed. Final Linux tests/vet/race and native HTTP/OCR/1,500-request transport regression passed. Established UI/background checks and seven-field OCR browser checks passed at 375/500/1000/1440/1920. All nine element mouse/touch/anchor/value/dot/preset/restart and editor-preview-OBS geometry checks passed, including native 200%/400% zoom and keyboard resizing. Responsive screenshots were inspected. Direct test.10/test.11 OBS screenshot comparisons were pixel-equal for three legacy scenarios. Final archive/extracted-package checks and hashes are documented in the verification record and SHA256SUMS.txt.
+Windows build/tests/vet/JS syntax, Linux tests/vet/race, full offline UI/background regressions and focused all-nine element tests passed. New checks cover clean/dirty switches, hidden hit areas, default/reload behavior, Save/Discard in transform mode and preserved numeric drafts. Seven-field OCR/browser regressions passed. Actual test.11/test.12 overlay screenshots were pixel-identical in three compatibility scenarios. Extracted Windows/Linux binaries passed native HTTP, OCR/restart and 1,500-request transport checks per platform without recurrence of the historical reset. Final archives passed integrity/hash/inventory/secret checks and include the updated documentation. See the verification record for evidence boundaries.
 
-The live source exposed Time, Home Score and Away Score. An isolated test.11 observed changing Time (40 samples/nine values), stable home 11 and away 101 (20 samples each), explicit follow/takeover and restart. Shot/foul/period mappings, deliberate source failures/pauses/resets and changing scores were simulated. Freshness is still unverified: /json supplies no detection timestamp or heartbeat. Never infer running state or video freshness from cached success.
+The test.10 intermittent Windows reset and test.11 reproduction/fix remain in their historical verification records. Never hide any recurrence with retries. Test.11 live ScoreSight observations and scoped 2026-11-06 user reports are retained as history; they are not new test.12 live or venue evidence.
 
-## Manual evidence and next steps
+## Next steps and manual checks
 
-- Preserve the scoped reports from 2026-11-06: test.9 match-clock OCR works in the operator’s home setup; test.8 Linux application/overlay works with OBS Flatpak. These are not venue validation or test.11 acceptance.
-- Operator rehearsal: configure real foul/period/shot fields, try mixed ownership and atomic reset rejection, verify OT, manipulate all nine elements on the physical touchscreen, and inspect actual OBS output while values change. Use a separate portable folder/configuration.
-- Still required: physical touchscreen, Windows tray, test.11 OBS, real capture pause/reset/freeze/loss, separate-machine LAN/firewall, Companion hardware and venue conditions/latency.
-- After explicit acceptance, prepare **v0.1.0 normal release** with refreshed version/docs, verified packages/checksums and separately authorized publication. Do not create another public test/prerelease by default.
-- Future optional work remains confidence/stability policy, upstream detection heartbeat support, multiple OCR sources and automatic sport rules. Preserve manual fallback and authentication boundaries.
+- Operator acceptance of normal selection/dragging and optional Free transform on the physical touchscreen, plus actual OBS output using a separate portable configuration.
+- Still required: Windows tray, real seven-field OCR/capture pause/reset/freeze/loss, separate-machine LAN/firewall, Companion hardware and venue accuracy/latency. The prior home OCR and Linux OBS Flatpak reports do not cover these checks.
+- After explicit acceptance, prepare **v0.1.0 normal release** with refreshed version/docs, verified packages/checksums and separately authorized publication. Do not publish this local development build or create another public test/prerelease by default.
+- Optional future work remains detection freshness/confidence policy, multiple OCR sources and automatic sport rules. Preserve manual fallback, image proportions/backwards compatibility, polling-safe editing and authentication boundaries.

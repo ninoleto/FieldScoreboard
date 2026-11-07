@@ -273,8 +273,11 @@ button.touch-select-trigger{display:flex;width:100%;justify-content:space-betwee
 
 /* Decorations are editor-only and never change the shared content geometry. */
 .stage .foul-dot{box-sizing:content-box}
-.stage-editor .stage-element{border:0;padding:0;margin:0;outline:2px dashed transparent;outline-offset:3px}
-.stage-editor .stage-element:hover{outline-color:#8ddcf2aa}.stage-editor .stage-element.selected{outline-color:#54ddc4}
+.stage-editor .stage-element{border:0;padding:0;margin:0;outline:1px solid transparent;outline-offset:3px}
+.stage-editor .stage-element:hover{outline-color:#8ddcf2aa;background:transparent}.stage-editor .stage-element.selected{outline-color:#54ddc4;background:transparent;box-shadow:none}
+.free-transform .stage-element.selected{outline-color:transparent}
+#freeTransform{min-height:64px;font-size:20px;margin-top:14px;max-width:100%}
+#freeTransform[aria-pressed="true"]{background:#176553;border:2px solid #aaffec;color:#fff;box-shadow:0 0 0 2px #54ddc444}
 .element-selection-border{position:absolute;z-index:4;border:2px solid #7cf5de;pointer-events:none}
 .element-handle-guide{position:absolute;z-index:3;border:1px dashed #7cf5de88;pointer-events:none}
 .element-resize-handle{position:absolute;z-index:5;transform:translate(-50%,-50%);width:56px;height:56px;min-height:56px;border:2px solid #c3fff2;background:#176553;color:#fff;font-size:26px;padding:0;touch-action:none;cursor:nwse-resize}

@@ -62,6 +62,7 @@
  }
  function setTab(target){
   if(!Object.hasOwn(pageNames,target))return;
+  if(target!==tab)elementEditor?.exitTransform();
   const fromMenu=compactNavigation.matches&&$('sectionNavigation').classList.contains('menu-open');
   tab=target;
   document.querySelectorAll('[data-tab]').forEach(b=>{

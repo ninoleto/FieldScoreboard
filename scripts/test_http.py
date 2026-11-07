@@ -38,7 +38,7 @@ with tempfile.TemporaryDirectory() as temp:
             for _ in range(45):
                 if proc.poll() is not None:raise RuntimeError('server exited before responding')
                 try:
-                    assert req('/api/health')['version']=='0.1.0-test.11'
+                    assert req('/api/health')['version']=='0.1.0-test.12'
                     break
                 except (OSError,AssertionError):time.sleep(.1)
             else:raise RuntimeError('server startup timeout')
