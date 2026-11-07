@@ -337,3 +337,20 @@ button.touch-select-trigger{display:flex;width:100%;justify-content:space-betwee
 .clock-setup .shot-auto-hide small,.clock-setup .shot-visibility-note{font-size:16px}
 .clock-card>.clock-set{margin-top:auto;width:100%;min-height:72px;font-size:20px}
 @media(min-width:540px) and (max-width:720px),(min-width:1000px){.clock-card .clock-presets{grid-template-columns:repeat(4,minmax(0,1fr))}}
+
+/* Match duration presets are pending setup, separate from live quick actions. */
+.match-duration-presets{margin-top:20px}
+.match-duration-presets h5{font-size:18px;margin:0 0 8px}
+.match-duration-presets p{font-size:16px;line-height:1.5;color:#bed0e0;margin:0 0 12px}
+.duration-preset-buttons{display:flex;flex-wrap:wrap;gap:12px}
+.duration-preset-buttons button{flex:1 1 100px;min-height:64px;font-size:20px;border:2px solid #536b85}
+.duration-preset-buttons [aria-pressed="true"]{background:#176553;border-color:#aaffec;color:#fff}
+.duration-preset-buttons [aria-pressed="true"]::before{content:'✓ ';color:#b5ffdf}
+
+/* The font weight row stays outside the scrolling list of font choices. */
+.font-weight-row{flex:none;padding:10px 12px;border-bottom:1px solid #6a829e;background:#182c43}
+.font-weight-row[hidden]{display:none}
+#elementBold{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:64px;font-size:20px;padding:10px 16px;border:2px solid #6a829e}
+#elementBold[aria-checked="true"]{background:#176553;border-color:#aaffec}
+.font-weight-state{border:1px solid #9cb5cb;border-radius:24px;min-width:76px;padding:6px 14px;text-align:center;font-size:18px}
+#elementBold[aria-checked="true"] .font-weight-state{background:#aaffec;color:#123c33;border-color:#aaffec}

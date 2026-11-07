@@ -43,6 +43,7 @@
   for(const id of ['main','shot']){const isRunning=s[id].state==='running';for(const cmd of ['start','pause']){const b=document.querySelector(`[data-clock-action="${id}:${cmd}"]`);if(b)b.disabled=cmd==='start'?isRunning:!isRunning}}
   if(!mainDraftDirty){$('mainSeconds').value=s.main.duration_seconds%60;$('mainMinutes').value=Math.floor(s.main.duration_seconds/60);$('mainDirection').value=s.main.direction}
   if(!shotDraftDirty)$('shotSeconds').value=s.shot.duration_seconds;
+  syncDurationPresets();
   $('shotAutoHide').checked=!!s.shot_auto_hide;
   $('shotVisibilityHint').textContent=s.shot_auto_hide && s.shot_visible===false ? 'Shot clock hidden on OBS overlay (match time ≤ shot time).' : '';
   if(!networkDirty){$('networkLan').checked=!/^127\.0\.0\.1:|^localhost:/.test(s.listen);$('networkPort').value=s.listen.split(':').pop()}
@@ -110,10 +111,21 @@
   if(await action(`/api/clock/${id}/set`,{seconds,direction:dir})){if(id==='main')mainDraftDirty=false;else shotDraftDirty=false;draw()}
  }));
  document.querySelectorAll('[data-shot-preset]').forEach(b=>b.addEventListener('click',async()=>{if(await action('/api/clock/shot/set',{seconds:Number(b.dataset.shotPreset),direction:'down'})){shotDraftDirty=false;draw()}}));
+ // These shortcuts edit pending setup only, including while the clock follows OCR.
+ function syncDurationPresets(){
+  const minutes=$('mainMinutes').value,seconds=$('mainSeconds').value;
+  for(const button of document.querySelectorAll('[data-main-duration]')){
+   const matches=minutes.trim()!==''&&seconds.trim()!==''&&Number(minutes)===Number(button.dataset.mainDuration)&&Number(seconds)===0;
+   button.setAttribute('aria-pressed',String(matches));
+  }
+ }
+ document.querySelectorAll('[data-main-duration]').forEach(button=>button.addEventListener('click',()=>{
+  $('mainMinutes').value=button.dataset.mainDuration;$('mainSeconds').value=0;mainDraftDirty=true;syncDurationPresets();
+ }));
  // Keep draft values untouched by polling until explicitly applied; 0 minutes is valid.
  for(const id of ['mainMinutes','mainSeconds','mainDirection','shotSeconds']){
-  $(id).addEventListener('input',()=>{if(id==='shotSeconds')shotDraftDirty=true;else mainDraftDirty=true});
-  $(id).addEventListener('change',()=>{if(id==='shotSeconds')shotDraftDirty=true;else mainDraftDirty=true});
+  $(id).addEventListener('input',()=>{if(id==='shotSeconds')shotDraftDirty=true;else mainDraftDirty=true;syncDurationPresets()});
+  $(id).addEventListener('change',()=>{if(id==='shotSeconds')shotDraftDirty=true;else mainDraftDirty=true;syncDurationPresets()});
  }
  function stepInput(id,delta){
   const input=$(id);if(!input)return;
@@ -186,7 +198,7 @@
  function selectField(id){if(!layout||!layout.elements[id])return;backgroundEditor?.select(false);selected=id;updateInspector();if(s)stage.paint($('editorStage'),s,layout,editorSelection(),dragging?.id);elementEditor?.sync()}
  function updateInspector(){if(!layout)return;const el=layout.elements[selected];if(!el)return;
   fieldPills.querySelectorAll('button').forEach(b=>b.classList.toggle('selected',b.dataset.field===selected));$('selectedTitle').textContent=names[selected];
-  $('elementVisible').checked=el.visible;$('elementX').value=el.x;$('elementY').value=el.y;$('elementFont').value=el.font;$('elementSize').value=el.size;$('elementAlign').value=el.align;$('elementColor').value=el.color;$('elementBold').checked=el.bold;
+  $('elementVisible').checked=el.visible;$('elementX').value=el.x;$('elementY').value=el.y;$('elementFont').value=el.font;$('elementSize').value=el.size;$('elementAlign').value=el.align;$('elementColor').value=el.color;
   $('backgroundName').textContent=layout.background ? 'Image: '+layout.background.slice(0,10)+'…' : 'No background loaded';
   window.refreshTouchOptions?.();
  }
@@ -194,7 +206,7 @@
  [['elementX','x',0,1920],['elementY','y',0,1080],['elementSize','size',12,240]].forEach(([id,prop,min,max])=>{
   $(id).addEventListener('change',()=>{const v=Number($(id).value);if(!Number.isFinite(v)){updateInspector();return};const n=Math.round(Math.min(max,Math.max(min,v)));$(id).value=n;change(prop,n)})
  });
- [['elementVisible','visible'],['elementBold','bold']].forEach(([id,prop])=>$(id).addEventListener('change',()=>change(prop,$(id).checked)));
+ $('elementVisible').addEventListener('change',()=>change('visible',$('elementVisible').checked));
  [['elementFont','font'],['elementAlign','align'],['elementColor','color']].forEach(([id,prop])=>$(id).addEventListener('change',()=>change(prop,$(id).value)));
  // Live appearance updates are serialized and never commit the editor draft.
  function syncDisplay(){
@@ -475,7 +487,7 @@
   let source=null,returnFocus=null,optionSignature='',pointerStart=null,scrolled=false,outsideStart=false;
   let search='',searchTime=0;
   const triggers=new Map();
-  const optionLabel=sel=>sel.selectedOptions[0]?.textContent?.trim()||'Choose…';
+  const optionLabel=sel=>(sel.selectedOptions[0]?.textContent?.trim()||'Choose…')+(sel.id==='elementFont'?' · '+(layout?.elements[selected]?.bold?'Bold':'Regular'):'');
   const options=()=>[...list.querySelectorAll('button:not(:disabled)')];
   function focusOption(button){
    if(!button)return;
@@ -513,6 +525,9 @@
    if(focused!==null){if(next)focusOption(next);else $('touchChoiceClose').focus();}
   }
   function refresh(){
+   const bold=!!layout?.elements[selected]?.bold;
+   $('elementBold').setAttribute('aria-checked',String(bold));
+   $('elementBold').querySelector('.font-weight-state').textContent=bold?'On':'Off';
    for(const [select,{trigger,label}] of triggers){
     const value=optionLabel(select),text=value+'  ▾';
     if(trigger.textContent!==text)trigger.textContent=text;
@@ -522,6 +537,10 @@
    if(dialog.open&&source){if(source.disabled)close();else renderChoices();}
   }
   function close(){if(dialog.open)dialog.close()}
+  $('elementBold').addEventListener('click',()=>{
+   if(source?.id!=='elementFont'||!layout?.elements[selected])return;
+   change('bold',!layout.elements[selected].bold);refresh();
+  });
   $('touchChoiceClose').addEventListener('click',close);
   dialog.addEventListener('close',()=>{
    returnFocus?.setAttribute('aria-expanded','false');
@@ -529,7 +548,7 @@
   });
   dialog.addEventListener('keydown',event=>{
    if(event.key!=='Tab')return;
-   const stops=[...dialog.querySelectorAll('button:not(:disabled):not([tabindex="-1"])')];
+   const stops=[...dialog.querySelectorAll('button:not(:disabled):not([tabindex="-1"])')].filter(button=>button.getClientRects().length);
    const index=stops.indexOf(document.activeElement);
    event.preventDefault();
    stops[(index+(event.shiftKey?-1:1)+stops.length)%stops.length]?.focus();
@@ -573,6 +592,7 @@
    trigger.addEventListener('click',event=>{
     event.preventDefault();event.stopPropagation();source=select;returnFocus=trigger;
     title.textContent=label;optionSignature='';search='';scrolled=false;pointerStart=null;
+    $('fontWeightRow').hidden=select.id!=='elementFont';
     renderChoices();dialog.showModal();trigger.setAttribute('aria-expanded','true');
     focusOption(list.querySelector('[tabindex="0"]'));
    });

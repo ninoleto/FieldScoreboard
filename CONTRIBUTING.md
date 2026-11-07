@@ -44,6 +44,7 @@ python scripts/test_background_ui.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_elements_ui.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_display_ui.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_clock_ui.py bin/fieldscoreboard-windows-console.exe
+python scripts/test_font_ui.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_http_transport.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_http.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_ocr.py bin/fieldscoreboard-windows-console.exe --ui
@@ -58,6 +59,7 @@ python scripts/test_background_ui.py bin/fieldscoreboard-linux
 python scripts/test_elements_ui.py bin/fieldscoreboard-linux
 python scripts/test_display_ui.py bin/fieldscoreboard-linux
 python scripts/test_clock_ui.py bin/fieldscoreboard-linux
+python scripts/test_font_ui.py bin/fieldscoreboard-linux
 python scripts/test_http_transport.py bin/fieldscoreboard-linux
 python scripts/test_http.py bin/fieldscoreboard-linux
 python scripts/test_ocr.py bin/fieldscoreboard-linux --ui
@@ -78,7 +80,9 @@ The offline UI suite serves mocked API state, not OBS. The background and HTTP s
 
 The element suite checks all nine move/resize workflows, default normal-mode selection/dragging, explicit Free transform and exit transitions, draft preservation and shared editor/preview/overlay geometry. For a direct legacy compatibility comparison, run `python scripts/test_legacy_overlay.py <previous-native-binary> <current-native-binary>`; it compares generated legacy OBS screenshots using isolated processes. The HTTP transport suite sends 1,500 action requests without retries and fails on truncated/reset responses.
 
-The clock suite checks card order, matching quick targets, all four immediate adjustments, transport preservation, one-unit setup drafts, immediate formats, Set actions, presets, auto-hide, OCR guards, footer and restart at all five widths. Go `clock_quick_test.go` covers both clocks, count-up/down, exact upper/zero boundaries and unchanged unrelated state.
+The clock suite checks card order, matching quick targets, all four immediate adjustments, transport preservation, one-unit setup drafts, immediate formats, Set actions, presets, auto-hide, OCR guards, footer and restart at all five widths. Its `ui_duration_presets.py` helper verifies all five pending match presets without live writes while paused/running, custom highlights, direction/format preservation and Set. The OCR fixture confirms setup cannot bypass ownership. Go `clock_quick_test.go` covers both clocks, count-up/down, exact upper/zero boundaries and unchanged unrelated state.
+
+The font suite checks the pinned Bold switch, family/weight independence, font-list scrolling, touch/keyboard/focus, hidden-row tab stops in other dialogs, element switching, Save/Discard, profiles, restart and transformed editor/preview/overlay rendering at all five widths.
 
 The display suite checks all five responsive widths, editor toolbar modes and inspector keyboard order, immediate preview/overlay appearance, unfinished inputs, queued/delayed writes, stale layout saves, Discard, position reset, presets and restart. Go display tests cover authentication, strict validation, running clocks and seven-field ownership isolation. OCR browser checks include real simulated connection transitions and duplicate-request prevention.
 

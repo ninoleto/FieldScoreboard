@@ -107,7 +107,9 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
         page.wait_for_function("()=>document.querySelector('#editorStage [data-id=home_name]').textContent.startsWith('LONG')")
         assert request('/api/state')['layout']['elements']['home_name']['transform']==t
         assert page.locator('#editorStage [data-id=home_name]').evaluate('e=>e.scrollWidth<=e.clientWidth+1')
-        choose(page,'elementFont','mono');number(page,'elementSize',44);page.locator('#elementBold').uncheck();page.locator('#elementColor').fill('#ffcc88');page.locator('#elementColor').dispatch_event('change');saved(page);overlay.wait_for_timeout(250)
+        choose(page,'elementFont','mono');number(page,'elementSize',44);page.locator('#elementFontChoice').click()
+        if page.locator('#elementBold').get_attribute('aria-checked')=='true':page.locator('#elementBold').click()
+        page.keyboard.press('Escape');page.locator('#elementColor').fill('#ffcc88');page.locator('#elementColor').dispatch_event('change');saved(page);overlay.wait_for_timeout(250)
         assert request('/api/state')['layout']['elements']['home_name']['transform']==t
         same(box(page,'home_name'),box(overlay,'home_name','overlayStage'))
         page.locator('[data-field="home_fouls"]').click();number(page,'elementX',500);number(page,'elementY',600)

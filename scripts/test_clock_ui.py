@@ -5,6 +5,7 @@ from urllib.request import Request,urlopen
 import argparse,json,os,shutil,socket,subprocess,tempfile,threading,time
 from playwright.sync_api import sync_playwright
 from ui_touch_checks import choose,navigate,no_overflow
+from ui_duration_presets import verify_duration_presets
 
 parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('binary');args=parser.parse_args()
 root=Path(__file__).resolve().parents[1];binary=Path(args.binary).resolve();(root/'.test').mkdir(exist_ok=True)
@@ -67,6 +68,8 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
             no_overflow(page);page.locator('.clock-grid').screenshot(path=str(root/f'.test/clocks15-{width}.png'))
             if width==1920:
                 page.locator('.both-clocks').scroll_into_view_if_needed();page.screenshot(path=str(root/'.test/clocks15-maximized-1920x1080.png'))
+            verify_duration_presets(page,request,wait,root,width)
+            set_clock('main',600);set_clock('shot',60)
             # Actual click/tap/keyboard requests, every shortcut on both clocks.
             for state in ('paused','running') if width==1920 else ('paused',):
                 request('/api/clock/both/start',{})
@@ -113,6 +116,12 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
             request('/api/ocr/follow',{'target':target});page.wait_for_function('(t)=>document.querySelector(`[data-clock-set="${t}"]`).disabled',arg=target)
             assert page.locator(f'[data-clock-adjust^="{target}:"]').evaluate_all('els=>els.length===4&&els.every(e=>e.disabled)')
             assert page.locator('[data-clock-action="both:start"]').is_disabled()
+            if target=='main':
+                before=request('/api/state');page.locator('[data-main-duration="8"]').click();page.wait_for_timeout(550)
+                assert page.locator('#mainMinutes').input_value()=='8' and page.locator('#mainSeconds').input_value()=='0'
+                assert page.locator('[data-clock-set=main]').is_disabled()
+                after=request('/api/state');assert after['main']==before['main'] and after['shot']==before['shot']
+                assert after['ocr']['targets']['main']['following'] and after['main']['duration_seconds']==before['main']['duration_seconds']
             held=request('/api/state')[target];choose(page,format_id,value);page.wait_for_function("()=>document.getElementById('displayStatus').textContent===''")
             actual=request('/api/state')[target];assert actual['state']=='ocr' and actual['remaining_seconds']==held['remaining_seconds']
             request('/api/ocr/manual',{'target':target});page.wait_for_function('(t)=>!document.querySelector(`[data-clock-set="${t}"]`).disabled',arg=target)
