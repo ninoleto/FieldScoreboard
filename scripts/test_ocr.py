@@ -33,7 +33,7 @@ def wait_for(predicate,timeout=5):
         time.sleep(.05)
     raise AssertionError('Timed out: '+json.dumps(state.get('ocr',{})))
 
-fixture={'text':'12:34','state':'SameNoChange','status':200,'missing':False,'extra':False,'home':'999','shot':'00:01','away':'7','delay':0}
+fixture={'text':'12:34','state':'SameNoChange','status':200,'missing':False,'extra':False,'home':'999','shot':'00:01','away':'7','delay':0,'home_fouls':'3','away_fouls':'2','period':'4'}
 entered=threading.Event()
 class Source(BaseHTTPRequestHandler):
     def log_message(self,*args):pass
@@ -44,6 +44,7 @@ class Source(BaseHTTPRequestHandler):
         # Discovered fields stay manual until individually followed.
         payload += [{'name':'Home Score','text':state['home'],'state':'Success'},{'name':'Shot Clock','text':state['shot'],'state':'Success'}]
         payload.append({'name':'Away Score','text':state['away'],'state':'Success'})
+        for key,name in [('home_fouls','Home Fouls'),('away_fouls','Away Fouls'),('period','Period')]:payload.append({'name':name,'text':state[key],'state':'Success'})
         if state['delay']:entered.set();time.sleep(state['delay'])
         if state['extra']:payload.append({'name':'Alternate','text':'03:21','state':'Success'})
         self.send_response(state['status']);self.send_header('Content-Type','application/json');self.end_headers()
@@ -107,23 +108,27 @@ with tempfile.TemporaryDirectory() as folder:
             print(('LIVE' if args.live_address else 'SIMULATED')+': check/follow, last-value hold, takeover and unrelated fields PASS')
             if args.live_address:
                 discovered=request('/api/state')['ocr']['targets']
-                if discovered['home_score']['can_follow']:
-                    request('/api/ocr/follow',{'target':'home_score'})
+                for target in ('shot','home_score','away_score','home_fouls','away_fouls','period'):
+                    if not discovered[target]['can_follow']:continue
+                    request('/api/ocr/follow',{'target':target})
                     values=[]
                     for _ in range(20):
-                        sample=request('/api/state');values.append(sample['home_score'])
-                        assert sample['ocr']['targets']['home_score']['following'] and not sample['ocr']['targets']['main']['following']
+                        sample=request('/api/state');values.append(sample[target])
+                        assert sample['ocr']['targets'][target]['following'] and not sample['ocr']['targets']['main']['following']
                         time.sleep(.2)
-                    held=request('/api/ocr/manual',{'target':'home_score'})['home_score'];time.sleep(.5)
-                    assert request('/api/state')['home_score']==held
-                    print('LIVE home score: follow/mixed manual match/takeover',json.dumps({'samples':20,'first':values[0],'last':values[-1],'distinct_values':len(set(values))}),flush=True)
+                    held=request('/api/ocr/manual',{'target':target})[target];time.sleep(.5)
+                    assert request('/api/state')[target]==held
+                    print('LIVE '+target+': follow/mixed manual match/takeover',json.dumps({'samples':20,'first':values[0],'last':values[-1],'distinct_values':len({json.dumps(v,sort_keys=True) for v in values})}),flush=True)
             if not args.live_address:
                 from ocr_mapping_checks import verify_mappings
                 verify_mappings(request,wait_for,fixture,entered)
+                from ocr_seven_checks import verify_seven
+                verify_seven(request,wait_for,fixture,entered)
             if args.ui:
                 from ui_ocr_checks import verify_ocr_ui
                 verify_ocr_ui(base,request,wait_for,fixture,root,address)
             saved=request('/api/state')['ocr']['targets']
+            game=request('/api/state')
             proc.terminate();proc.wait(timeout=5);proc=start()
             restarted=request('/api/state')
             assert restarted['ocr']['connection']=='disconnected' and not restarted['ocr']['following'] and restarted['main']['state']=='ready'
@@ -131,6 +136,7 @@ with tempfile.TemporaryDirectory() as folder:
             for target,view in restarted['ocr']['targets'].items():
                 assert not view['following'] and view['field']==saved[target]['field']
             assert restarted['shot']['state']=='ready'
+            for key in ('home_score','away_score','home_fouls','away_fouls','period','period_overtime'):assert restarted[key]==game[key],('restart lost value',key)
             print('OCR restart: settings retained, manual Ready, no automatic connection/follow PASS')
             if args.ui:
                 from ui_ocr_checks import verify_disconnected_ui
@@ -139,6 +145,8 @@ with tempfile.TemporaryDirectory() as folder:
             log.flush()
             print('OCR test failed; native exit status:',proc.poll(),flush=True)
             print((Path(folder)/'server.log').read_text(errors='replace'),flush=True)
+            native_log=Path(folder)/'fieldscoreboard.log'
+            if native_log.exists():print(native_log.read_text(errors='replace'),flush=True)
             raise
         finally:
             proc.terminate();proc.wait(timeout=5)

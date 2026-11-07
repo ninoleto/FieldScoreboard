@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net"
 	"os"
 	"path/filepath"
@@ -14,21 +15,29 @@ import (
 	"time"
 )
 
-const Version = "0.1.0-test.10"
+const Version = "0.1.0-test.11"
 const CanvasW = 1920
 const CanvasH = 1080
 
 var FieldIDs = []string{"period", "main_clock", "shot_clock", "home_score", "away_score", "home_fouls", "away_fouls", "home_name", "away_name"}
 
+// ElementTransform scales rendered content, not a fixed clipping rectangle.
+// Nil is the exact legacy output. Dynamic values keep the same scale/anchor.
+type ElementTransform struct {
+	ScaleX     float64 `json:"scale_x"`
+	ScaleY     float64 `json:"scale_y"`
+	LockAspect bool    `json:"lock_aspect"`
+}
 type Element struct {
-	X       int    `json:"x"`
-	Y       int    `json:"y"`
-	Font    string `json:"font"`
-	Size    int    `json:"size"`
-	Color   string `json:"color"`
-	Bold    bool   `json:"bold"`
-	Align   string `json:"align"`
-	Visible bool   `json:"visible"`
+	Transform *ElementTransform `json:"transform,omitempty"`
+	X         int               `json:"x"`
+	Y         int               `json:"y"`
+	Font      string            `json:"font"`
+	Size      int               `json:"size"`
+	Color     string            `json:"color"`
+	Bold      bool              `json:"bold"`
+	Align     string            `json:"align"`
+	Visible   bool              `json:"visible"`
 }
 type Layout struct {
 	Elements            map[string]Element   `json:"elements"`
@@ -203,6 +212,13 @@ func ValidateLayout(l Layout) error {
 		}
 		if el.X < 0 || el.X > CanvasW || el.Y < 0 || el.Y > CanvasH {
 			return fmt.Errorf("invalid position for %s", id)
+		}
+		if el.Transform != nil {
+			for _, scale := range []float64{el.Transform.ScaleX, el.Transform.ScaleY} {
+				if math.IsNaN(scale) || math.IsInf(scale, 0) || scale < .05 || scale > 20 {
+					return fmt.Errorf("invalid transform for %s", id)
+				}
+			}
 		}
 		if el.Size < 12 || el.Size > 240 {
 			return fmt.Errorf("invalid font size for %s", id)

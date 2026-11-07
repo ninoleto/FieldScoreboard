@@ -28,6 +28,10 @@
    if(!(skipDrag===id)){node.style.left=item.x+'px';node.style.top=item.y+'px'}
    node.style.fontSize=item.size+'px';node.style.fontWeight=item.bold?'800':'400';node.style.fontFamily=families[item.font]||families.sans;
    node.style.color=item.color;node.dataset.align=item.align;node.style.display=(item.visible && !(id==='shot_clock' && s.shot_visible===false && !stage.classList.contains('stage-editor')))?'':'none';
+   // Scale content (including foul dots), with the text anchor fixed at X/Y.
+   // Natural width can grow as digits/names change; there is no clipping box.
+   const t=item.transform,anchor=item.align==='right'?100:item.align==='center'?50:0;
+   node.style.transform=t?`scale(${t.scale_x},${t.scale_y}) translateX(-${anchor}%)`:'';
    node.classList.toggle('selected',selected===id);
    node.style.zIndex=(selected===id?'2':'1');
    const isHome=id==='home_fouls';const isAway=id==='away_fouls';
@@ -43,5 +47,11 @@
   else if(mode==='fit'||mode==='fill'){const factor=Math[mode==='fit'?'min':'max'](1920/width,1080/height);w*=factor;h*=factor}
   return {mode,width:w,height:h,x:(1920-w)/2,y:(1080-h)/2,original_width:width,original_height:height,lock_aspect:lock};
  }
- window.FieldStage={fieldIDs,paint,scale,initialize,backgroundBox,backgroundPreset};
+ function elementBox(stage,id){
+  const node=initialize(stage).nodes[id],canvas=stage.getBoundingClientRect(),ratio=canvas.width/1920;
+  if(!node||ratio<=0||getComputedStyle(node).display==='none')return null;
+  const box=node.getBoundingClientRect();
+  return {left:(box.left-canvas.left)/ratio,top:(box.top-canvas.top)/ratio,width:box.width/ratio,height:box.height/ratio};
+ }
+ window.FieldStage={fieldIDs,paint,scale,initialize,backgroundBox,backgroundPreset,elementBox};
 })();

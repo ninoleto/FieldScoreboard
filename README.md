@@ -2,9 +2,9 @@
 
 **A manual sports scoreboard and graphics editor for OBS Studio.** Control scores, fouls, periods and two independent clocks from a large, touch-friendly web panel. Arrange your artwork and scoreboard fields in one transparent 1920×1080 Browser Source, then nest it over your camera scene.
 
-Free and open source under the [MIT licence](LICENSE). Runs on **Windows x64 and Linux x64**, without a cloud account or extra application runtime. **This branch is v0.1.0-test.10, a local-only ScoreSight development build.** The published first preview remains test.8; the download links below are for that unchanged release. Neither build is a fully field-validated stable release.
+Free and open source under the [MIT licence](LICENSE). Runs on **Windows x64 and Linux x64**, without a cloud account or extra application runtime. **This branch is v0.1.0-test.11, a local-only ScoreSight development build.** The published first preview remains test.8; the download links below are for that unchanged release. Neither build is a fully field-validated stable release.
 
-The optional **ScoreSight OCR** section is at the **bottom of Live control**, below every manual panel. Connect to discover fields, then follow **match clock, shot clock, home score and away score independently**. Each card shows its source, recognised/accepted value and manual takeover. Missing fields stay unconfigured; bad readings keep the displayed value. Takeover retains the value and pauses clocks. See [setup and limitations](docs/OCR_PLAN.md), [test.10 notes](docs/RELEASE_NOTES-v0.1.0-test.10.md) and [verification](docs/VERIFICATION-v0.1.0-test.10.md). Use the separate local test.10 packages with an isolated configuration; the public downloads below remain test.8.
+The optional **ScoreSight OCR** section is at the **bottom of Live control**, below every manual panel. Connect to discover fields, then follow **match clock, shot clock, home/away scores, home/away fouls and numeric period independently**. Each card shows its source, recognised/accepted value and manual takeover. Missing fields stay unconfigured; bad readings keep the displayed value. Takeover retains the value and pauses clocks. See [setup and limitations](docs/OCR_PLAN.md), [test.11 notes](docs/RELEASE_NOTES-v0.1.0-test.11.md) and [verification](docs/VERIFICATION-v0.1.0-test.11.md). Use the separate local test.11 packages with an isolated configuration; the public downloads below remain test.8.
 
 ## Download and start
 
@@ -41,7 +41,7 @@ If **Browser Source is missing on Linux**, check which OBS installation you laun
 - Independent match and shot clocks, count-up/down match timing, duration entry and time corrections. **Start both / Pause both** keeps their current times. Resetting or setting the shot clock (including 14/24/30 presets) starts it only if the match clock is running, without changing the match clock.
 - Optional **shot auto-hide** hides its output when shot time is at least the remaining match time, or the match has expired. Timing continues internally. After application restart, saved game values remain but both clocks return to Ready.
 - Large choice dialogs and consistent numeric ± controls at every screen size. Duration drafts wait for **Set** and survive background updates; narrow screens use **Menu** navigation.
-- Nine movable/stylable fields and PNG/JPG/WebP backgrounds. New images **Fit entire image** without distortion; Fill, Original size, Stretch and Custom placement are available. Aspect lock, dimensions and position controls preserve original proportions when locked.
+- Nine movable/stylable fields with a clear selected-element label, large resize handles, aspect lock and precise width/height ± controls. Resizing transforms the text or foul dots; extra digits and longer names grow naturally. PNG/JPG/WebP backgrounds are supported. New images **Fit entire image** without distortion; Fill, Original size, Stretch and Custom placement are available. Aspect lock, dimensions and position controls preserve original proportions when locked.
 - Use **Edit background — move & resize** beside the preview to drag the image or resize its corner handles; **Finish editing background** exits that mode. **Save layout / Discard** controls when edits reach OBS. Layout presets include graphics and positioning without replacing live scores or clocks.
 - Fine-position arrows move **5/10/20 px**, default **5 px**. X/Y ± buttons remain **1 px**. Saved coordinates always use the logical 1920×1080 canvas.
 
@@ -55,8 +55,10 @@ The built-in **Companion HTTP Builder** generates requests for Bitfocus Companio
 
 ## Preview status and development
 
-**User-reported manual smoke test, 2026-11-06, for test.8:** the Linux application and its overlay work with OBS Flatpak. This does not validate the OCR build or establish physical touchscreen, Windows tray, LAN, Companion or live-event validation. See [test.8 verification](docs/VERIFICATION-v0.1.0-test.8.md) and the separate [test.10 results](docs/VERIFICATION-v0.1.0-test.10.md).
+**User-reported manual smoke test, 2026-11-06, for test.8:** the Linux application and its overlay work with OBS Flatpak. This does not validate the OCR build or establish physical touchscreen, Windows tray, LAN, Companion or live-event validation. See [test.8 verification](docs/VERIFICATION-v0.1.0-test.8.md) and the separate [test.11 results](docs/VERIFICATION-v0.1.0-test.11.md).
 
-**User-reported home smoke test, 2026-11-06:** match-clock OCR works in the operator’s home setup with test.9. This is not venue validation. Local test.10 adds independent clock/score mappings. OCR fouls/period, automatic sport rules, NDI and direct OBS control are **not included**. See [current scope and future work](docs/OCR_PLAN.md).
+**User-reported home smoke test, 2026-11-06:** match-clock OCR works in the operator’s home setup with test.9. This is not venue validation. Local test.11 includes seven independent OCR mappings and direct element resizing. Automatic sport rules, NDI and direct OBS control are **not included**. See [current scope and future work](docs/OCR_PLAN.md).
+
+After user acceptance, the intended public version is **v0.1.0**, a normal release. Test.11 remains local and is not published.
 
 To contribute, read [CONTRIBUTING.md](CONTRIBUTING.md), the [architecture guide](docs/ARCHITECTURE.md), [AGENTS.md](AGENTS.md) and the current [handoff](handoff.md). Field Scoreboard is separate from Field Timer and is not affiliated with OBS Studio or Bitfocus Companion.

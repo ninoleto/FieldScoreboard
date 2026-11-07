@@ -68,6 +68,10 @@ func cloneLayout(l Layout) Layout {
 	}
 	m := make(map[string]Element, len(l.Elements))
 	for k, v := range l.Elements {
+		if v.Transform != nil {
+			transform := *v.Transform
+			v.Transform = &transform
+		}
 		m[k] = v
 	}
 	l.Elements = m
@@ -238,7 +242,7 @@ func (a *App) AdjustScore(field string, delta int) error {
 }
 func (a *App) GameReset() error {
 	return a.updateConfig(func(c *Config) error {
-		for _, target := range []string{"home_score", "away_score"} {
+		for _, target := range []string{"home_score", "away_score", "home_fouls", "away_fouls", "period"} {
 			if err := a.ocrGuardLocked(target); err != nil {
 				return err
 			}

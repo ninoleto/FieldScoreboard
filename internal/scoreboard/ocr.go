@@ -25,9 +25,9 @@ const ocrBodyLimit = 256 * 1024
 var errOCRFollowing = errors.New("take manual control of the OCR-controlled field first")
 var ocrClockPattern = regexp.MustCompile(`^[0-9]{1,5}:[0-9]{2}$`)
 var ocrNumberPattern = regexp.MustCompile(`^[0-9]{1,4}$`)
-var ocrTargets = []string{"main", "shot", "home_score", "away_score"}
-var ocrSuggestions = map[string]string{"main": "Time", "shot": "Shot Clock", "home_score": "Home Score", "away_score": "Away Score"}
-var ocrLabels = map[string]string{"main": "Match clock", "shot": "Shot clock", "home_score": "Home score", "away_score": "Away score"}
+var ocrTargets = []string{"main", "shot", "home_score", "away_score", "home_fouls", "away_fouls", "period"}
+var ocrSuggestions = map[string]string{"main": "Time", "shot": "Shot Clock", "home_score": "Home Score", "away_score": "Away Score", "home_fouls": "Home Fouls", "away_fouls": "Away Fouls", "period": "Period"}
+var ocrLabels = map[string]string{"main": "Match clock", "shot": "Shot clock", "home_score": "Home score", "away_score": "Away score", "home_fouls": "Home fouls", "away_fouls": "Away fouls", "period": "Period"}
 
 // Only settings persist. An explicit empty mapping disables auto-suggestion.
 // Field retains compatibility with test.9 settings and mirrors the main mapping.
@@ -146,13 +146,21 @@ func parseOCRValue(target, text string) (int, error) {
 		}
 		return 0, errors.New("expected seconds or MM:SS, at most 3600 seconds")
 	}
-	limit := 999
-	if target == "shot" {
-		limit = 3600
+	minimum, limit, digits := 0, 999, 3
+	switch target {
+	case "shot":
+		limit, digits = 3600, 4
+	case "home_fouls", "away_fouls":
+		limit, digits = 30, 2
+	case "period":
+		minimum, limit, digits = 1, 20, 2
+	case "home_score", "away_score":
+	default:
+		return 0, errors.New("unknown OCR target")
 	}
 	value, err := strconv.Atoi(text)
-	if !ocrNumberPattern.MatchString(text) || err != nil || value > limit || (target != "shot" && len(text) > 3) {
-		return 0, fmt.Errorf("expected a whole number from 0 to %d", limit)
+	if !ocrNumberPattern.MatchString(text) || err != nil || value < minimum || value > limit || len(text) > digits {
+		return 0, fmt.Errorf("expected a whole number from %d to %d", minimum, limit)
 	}
 	return value, nil
 }
@@ -363,18 +371,26 @@ func (a *App) applyOCRValueLocked(target string, value int) error {
 		return nil
 	}
 	c := a.cfg
-	if target == "home_score" {
-		if c.HomeScore == value {
-			return nil
-		}
-		c.HomeScore = value
-	} else {
-		if c.AwayScore == value {
-			return nil
-		}
-		c.AwayScore = value
+	var destination *int
+	switch target {
+	case "home_score":
+		destination = &c.HomeScore
+	case "away_score":
+		destination = &c.AwayScore
+	case "home_fouls":
+		destination = &c.HomeFouls
+	case "away_fouls":
+		destination = &c.AwayFouls
+	case "period":
+		destination = &c.Period // Numeric observations never toggle OT.
+	default:
+		return errors.New("unknown OCR target")
 	}
-	// Persist score changes only, never identical reads at polling frequency.
+	if *destination == value {
+		return nil
+	}
+	*destination = value
+	// Persist changed game values only, never identical polling observations.
 	if err := saveConfig(a.path, c); err != nil {
 		return err
 	}
@@ -473,7 +489,7 @@ func (a *App) acceptOCR(ticket ocrTicket, results []scoreSightResult, fetchErr e
 		if t.Following {
 			if err := a.applyOCRValueLocked(target, value); err != nil {
 				t.Reading = "save_error"
-				t.Warning = "Could not save score. Keeping the displayed value."
+				t.Warning = "Could not save value. Keeping the displayed value."
 				continue
 			}
 		}

@@ -10,12 +10,13 @@ Field Scoreboard is one Go process with embedded browser assets. It owns the liv
 | `cmd/fieldscoreboard/tray_windows.go` / `tray_other.go` | Native Win32 tray; Linux terminal lifecycle. |
 | `internal/scoreboard/model.go` | Schema/defaults/validation, file writes, monotonic clock model and formatting. |
 | `internal/scoreboard/engine.go` | Mutex-protected game state, clock actions, snapshots and layout profiles. |
-| `internal/scoreboard/ocr.go` / `ocr_test.go` / `ocr_mappings_test.go` | Bounded ScoreSight polling, payload validation, runtime ownership/freshness status and regression tests. |
+| `internal/scoreboard/ocr.go` / `ocr_test.go` / `ocr_mappings_test.go` / `ocr_seven_test.go` | Bounded ScoreSight polling, payload validation, runtime ownership/freshness status and regression tests. |
 | `internal/scoreboard/web/ocr.js` | Touch OCR connection, actual field options, drafts, follow/takeover and operator warnings. |
 | `internal/scoreboard/background.go` | Image dimension parsing, orientation, transform defaults and validation. |
 | `internal/scoreboard/network.go` | Private IPv4 interface discovery and address validation. |
 | `internal/scoreboard/server.go` | Embedded files, HTTP/SSE, authentication, uploads and sanitized overlay feed. |
 | `internal/scoreboard/web/app.js` / `app.css` / `index.html` | Operator panel, editor drafts, choice dialogs, numeric controls and HTTP Builder. |
+| `internal/scoreboard/web/elements.js` | Editor-only selection bounds/handles, pointer-to-logical resize, aspect lock and numeric drafts. |
 | `internal/scoreboard/web/background.js` | Explicit image selection, drafts, pointer/keyboard move and resize. |
 | `internal/scoreboard/web/render.js` | Shared logical-canvas layout, background placement and field rendering. |
 | `internal/scoreboard/web/overlay.*` | Transparent OBS page, read-only events and reconnect behavior. |
@@ -28,7 +29,9 @@ Field Scoreboard is one Go process with embedded browser assets. It owns the liv
 
 Persisted data includes game values, durations/direction, OT, auto-hide and layout. Runtime elapsed/paused progress is not persisted: constructing a new App creates Ready clocks. Match and shot actions remain independent; combined Start/Pause is explicit. Shot Reset/Set resumes only when main is running. Shot visibility and the OT label are computed without changing clock timing or discarding the numeric period.
 
-Explicit OCR ownership is per target: main, shot, home_score and away_score. Accepted clock readings write the held clock base under the same mutex; no internal countdown runs, and the snapshot identifies either owned clock as `ocr`. Scores use existing game persistence, writing only when their numeric value changes. Manual/API controls guard the affected owner, combined actions reject before any mutation if either clock follows, and game reset rejects if either score follows. Shot reset resumes only from the internal main running state, never an inferred OCR state. Auto-hide compares both effective values.
+Explicit OCR ownership is per target: main, shot, home_score, away_score, home_fouls, away_fouls and period. Accepted clock readings write the held clock base under the same mutex; no internal countdown runs, and the snapshot identifies either owned clock as `ocr`. Scores, fouls and numeric period use existing game persistence, writing only when their numeric value changes. Manual/API controls guard the affected owner, combined actions reject before any mutation if either clock follows, and game reset rejects if any score/foul/period follows. Shot reset resumes only from the internal main running state, never an inferred OCR state. Auto-hide compares both effective values.
+
+Numeric period updates preserve the separate `PeriodOvertime` flag; OT remains an explicit manual display toggle.
 
 Takeover retains the displayed value (clocks paused). A connection generation and per-target request revisions prevent late responses crossing ownership/mapping changes, without suppressing other valid target updates. Malformed or duplicate individual fields cannot poison the whole array. One context-bound worker owns HTTP polling; timeouts never hold the state mutex. Optional config `ocr` stores address/mappings and a legacy main `field` alias. Test.9 settings migrate without automatic follow; explicit empty mappings disable suggestions. Restart is manual/Ready/disconnected. Runtime statuses stay in the authenticated operator snapshot; OBS receives only effective game/clock values. See [source contract and freshness limitations](OCR_PLAN.md).
 
@@ -38,7 +41,7 @@ Go embeds `web/*`; asset changes need a new build. The operator UI polls `/api/s
 
 The editor paints a draft layout while live preview and OBS paint the saved layout. Save commits only layout; Discard restores the saved version. Preset loads replace layout without changing match data. A layout save in flight must not erase newer local edits.
 
-`render.js` is shared by editor, preview and OBS. Coordinates are logical 1920×1080; resize/zoom only applies a presentation scale. Pointer movement is converted back into logical pixels. Scoreboard fields sit above the graphic. Background transform metadata holds width, height, X/Y, sizing mode, original dimensions and aspect lock. Missing metadata deliberately means legacy full-canvas stretch. Selection/resize decorations are editor-only; clipping and alpha are shared with the transparent overlay.
+`render.js` is shared by editor, preview and OBS. Coordinates are logical 1920×1080; resize/zoom only applies a presentation scale. Pointer movement is converted back into logical pixels. Scoreboard fields sit above the graphic. Background transform metadata holds width, height, X/Y, sizing mode, original dimensions and aspect lock. Missing metadata deliberately means legacy full-canvas stretch. Optional `elements[id].transform` stores `scale_x`, `scale_y` and `lock_aspect` (finite scales .05–20). Nil preserves legacy OBS geometry. The renderer scales actual text/dot content around the left/center/right anchor, with natural width/height and no fixed clipping box; values can grow while scales persist. Width/height controls convert current logical bounds to scale factors. Pointer deltas divide by the measured canvas scale, and resize anchors use the opposite side/corner. Transforms are deep-copied in snapshots/configuration and travel with layout presets. Editor borders are outside content geometry; foul-dot box sizing matches legacy OBS. Selection/resize decorations are editor-only; clipping and alpha are shared with the transparent overlay.
 
 OBS uses `/api/overlay-events` with `/api/overlay-state` as fallback. It reconnects and hides stale graphics after roughly six seconds without data. Browser/network latency affects display delivery, not the engine's clock ownership.
 
@@ -78,6 +81,8 @@ The common remote API gate uses constant-time bearer comparison. Client IP comes
 | `PUT /api/network` | `{"listen":"127.0.0.1:8790"}`; persists listener for next restart. |
 | `POST /api/ocr/connect` | `{"address":"http://127.0.0.1:18099"}`; persist address and start monitoring only. |
 | `POST /api/ocr/field` | `{"target":"main","field":"Time"}`; select a discovered field while that target is manual; empty field unconfigures. |
-| `POST /api/ocr/follow`, `POST /api/ocr/manual` | `{"target":"main"}`; per-target follow/takeover. Targets: main, shot, home_score, away_score. Omitted target retains test.9 main behavior. |
+| `POST /api/ocr/follow`, `POST /api/ocr/manual` | `{"target":"main"}`; per-target follow/takeover. Targets: main, shot, home_score, away_score, home_fouls, away_fouls, period. Omitted target retains test.9 main behavior. |
 
 JSON payloads require `Content-Type: application/json`; decoding rejects unknown fields and multiple JSON values. Image uploads use image bytes. The HTTP Builder produces supported action requests; see [Companion setup](COMPANION_SETUP.md). Security/API tests live with the server/engine tests. Preserve these boundaries and saved-config compatibility.
+
+Bodyless clock actions, game reset and token rotation consume optional unused request bodies before state changes and replies (64 KiB maximum, 5-second read deadline), after their existing access checks. This prevents Windows connection resets with unread body bytes and `Connection: close`; empty-body/optional-body API semantics remain compatible. Regression coverage includes `action_body_test.go` and `test_http_transport.py`.

@@ -77,6 +77,29 @@ func decode(r *http.Request, into any) error {
 	return nil
 }
 
+// Bodyless action endpoints historically accept an optional unused body. Drain
+// it before replying: closing HTTP/1 connections with unread bytes can reset a
+// large response on Windows. Keep reads bounded and do not change API semantics.
+func consumeActionBody(w http.ResponseWriter, r *http.Request) bool {
+	if r.Body == nil || r.Body == http.NoBody {
+		return true
+	}
+	controller := http.NewResponseController(w)
+	_ = controller.SetReadDeadline(time.Now().Add(5 * time.Second))
+	defer controller.SetReadDeadline(time.Time{})
+	_, err := io.Copy(io.Discard, http.MaxBytesReader(w, r.Body, 65536))
+	if err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			apiErr(w, 413, "action body too large")
+		} else {
+			apiErr(w, 400, "incomplete action body")
+		}
+		return false
+	}
+	return true
+}
+
 // overlayAllowed permits local OBS, or read-only OBS clients on trusted
 // private networks ONLY after LAN listening was applied by a restart.
 // Remote clients never receive an API token or access to control endpoints.
@@ -225,6 +248,9 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 			apiErr(w, 403, "API token rotation is host-only")
 			return
 		}
+		if !consumeActionBody(w, r) {
+			return
+		}
 		fresh, err := s.App.RotateToken()
 		if err != nil {
 			apiErr(w, 500, "unable to rotate API token")
@@ -327,6 +353,9 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 		}
 		s.done(w, s.App.AdjustScore(v.Field, v.Delta))
 	case p == "reset-game" && r.Method == "POST":
+		if !consumeActionBody(w, r) {
+			return
+		}
 		s.done(w, s.App.GameReset())
 	case strings.HasPrefix(p, "clock/") && r.Method == "POST":
 		parts := strings.Split(p, "/")
@@ -359,6 +388,9 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			s.done(w, s.App.AdjustClock(which, v.Seconds))
+			return
+		}
+		if !consumeActionBody(w, r) {
 			return
 		}
 		s.done(w, s.App.ClockAction(which, action))

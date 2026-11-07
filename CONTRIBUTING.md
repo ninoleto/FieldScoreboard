@@ -41,6 +41,8 @@ Open `http://127.0.0.1:8790`. Add `--listen 127.0.0.1:8791` if another instance 
 .\scripts\build.ps1
 python scripts/test_ui_offline.py
 python scripts/test_background_ui.py bin/fieldscoreboard-windows-console.exe
+python scripts/test_elements_ui.py bin/fieldscoreboard-windows-console.exe
+python scripts/test_http_transport.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_http.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_ocr.py bin/fieldscoreboard-windows-console.exe --ui
 ```
@@ -51,6 +53,8 @@ python scripts/test_ocr.py bin/fieldscoreboard-windows-console.exe --ui
 bash scripts/build.sh
 python scripts/test_ui_offline.py
 python scripts/test_background_ui.py bin/fieldscoreboard-linux
+python scripts/test_elements_ui.py bin/fieldscoreboard-linux
+python scripts/test_http_transport.py bin/fieldscoreboard-linux
 python scripts/test_http.py bin/fieldscoreboard-linux
 python scripts/test_ocr.py bin/fieldscoreboard-linux --ui
 ```
@@ -68,7 +72,9 @@ On Linux, run `CGO_ENABLED=1 go test -race ./...`. Check each `internal/scoreboa
 
 The offline UI suite serves mocked API state, not OBS. The background and HTTP suites start isolated native processes with temporary configurations and generated artwork. Screenshots go under `.test/`. Inspect responsive screenshots, including 375 px and a maximized 1920×1080 viewport. Touch emulation is not physical touchscreen validation.
 
-The OCR suite simulates four fields, simultaneous/mixed ownership, API guards, atomic combined rejection, delayed takeover, pauses/resets, per-field rejection, loss/recovery and restart. Browser checks cover bottom ordering, all four selectors, drafts and polling focus/scroll; omit `--ui` for a native HTTP-only run. For a running real ScoreSight, use `python scripts/test_ocr.py <native-binary> --live-address http://127.0.0.1:18099`. It starts an isolated scoreboard, reads the source without modifying it and records live observations separately. Do not combine `--ui` with the live option: browser field fixtures belong to the simulator.
+The element suite checks all nine move/resize workflows and shared editor/preview/overlay geometry. For a direct legacy compatibility comparison, run `python scripts/test_legacy_overlay.py <previous-native-binary> <current-native-binary>`; it compares generated legacy OBS screenshots using isolated processes. The HTTP transport suite sends 1,500 action requests without retries and fails on truncated/reset responses.
+
+The OCR suite simulates seven fields, simultaneous/mixed ownership, API guards, atomic combined rejection, delayed takeover, pauses/resets, per-field rejection, loss/recovery and restart. Browser checks cover bottom ordering, all seven selectors, drafts and polling focus/scroll; omit `--ui` for a native HTTP-only run. For a running real ScoreSight, use `python scripts/test_ocr.py <native-binary> --live-address http://127.0.0.1:18099`. It starts an isolated scoreboard, reads the source without modifying it and records live observations separately. Do not combine `--ui` with the live option: browser field fixtures belong to the simulator.
 
 ## Contribution workflow
 
@@ -81,7 +87,7 @@ Never commit real tokens, runtime configuration, private artwork, local absolute
 
 ## Packaging and release
 
-For a new application version, update `internal/scoreboard/model.go`, the UI version label, package/test version references and matching release/verification documents together. Use the next unused test tag. A documentation-only publication of an already-tested version can retain its version and exact executable bytes; record reused evidence explicitly.
+For a new application version, update `internal/scoreboard/model.go`, the UI version label, package/test version references and matching release/verification documents together. Use the next unused local test version during development. After operator acceptance of this work, the intended public version is v0.1.0 as a normal release, not another public preview; publication still requires authorization. A documentation-only publication of an already-tested version can retain its version and exact executable bytes; record reused evidence explicitly.
 
 After building, from the source root:
 
@@ -95,4 +101,4 @@ python scripts/verify_packages.py
 
 Extract platform ZIPs and run `scripts/test_http.py` with the extracted Windows console binary and Linux binary on their respective OSes. Verify archive executables match those tested. Run Gitleaks (for example `gitleaks dir <staged-source> --redact --max-archive-depth 2`) on the exact staged source and release directory, plus a review for personal paths/data. `verify_packages.py` checks CRCs, hashes, embedded assets, platform formats, source contents and basic hygiene; it does not replace the secret scan.
 
-Publication requires the owner's authorization. Inspect repository/history, commit actual source and scripts, tag the verified commit, and attach all three ZIPs and the checksum file to a **prerelease**. After publishing, check unauthenticated repository/release access, download every asset and compare SHA-256 with local files. Record results without claiming pending physical tests passed.
+Publication requires the owner's authorization. Inspect repository/history, commit actual source and scripts, tag the verified commit, and attach all three ZIPs and the checksum file. Use a prerelease for explicitly approved preview versions; the planned accepted v0.1.0 is a normal release. After publishing, check unauthenticated repository/release access, download every asset and compare SHA-256 with local files. Record results without claiming pending physical tests passed.

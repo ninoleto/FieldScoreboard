@@ -1,4 +1,4 @@
-"""Focused regression for all 21 numeric +/- groups and background discovery."""
+"""Focused regression for all 23 numeric +/- groups and background discovery."""
 from ui_touch_checks import choose, navigate, no_overflow
 import json
 
@@ -6,7 +6,7 @@ import json
 def verify_numeric_controls(browser, offline_page, root):
     limits={'periodValue':'20','homeScore':'999','awayScore':'999','homeFouls':'30','awayFouls':'30',
             'mainMinutes':'10079','mainSeconds':'59','shotSeconds':'3600','elementX':'1920','elementY':'1080',
-            'elementSize':'240','foulDotsMax':'20','backgroundWidth':'15728640','backgroundHeight':'15728640',
+            'elementWidth':'200000','elementHeight':'200000','elementSize':'240','foulDotsMax':'20','backgroundWidth':'15728640','backgroundHeight':'15728640',
             'backgroundX':'-15728640','backgroundY':'-15728640','builderMinutes':'10079','builderSeconds':'59',
             'networkPort':'65535','builderDelta':'-604800','builderPeriod':'20'}
     for width in [375,500,1000,1440,1920]:
@@ -92,4 +92,4 @@ def verify_numeric_controls(browser, offline_page, root):
         assert page.evaluate('window.__mock.main.duration_seconds')==duration
         assert not errors,errors
         page.close()
-        print('21 consistent numeric groups, full allowed values, keyboard exact entry, background toggle:',width,'PASS')
+        print('23 consistent numeric groups, full allowed values, keyboard exact entry, background toggle:',width,'PASS')

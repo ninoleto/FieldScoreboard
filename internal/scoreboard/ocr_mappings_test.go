@@ -14,7 +14,7 @@ import (
 )
 
 func allOCR(main, shot, home, away string) []scoreSightResult {
-	return []scoreSightResult{{Name: "Time", Text: main, State: "Success"}, {Name: "Shot Clock", Text: shot, State: "SameNoChange"}, {Name: "Home Score", Text: home, State: "Success"}, {Name: "Away Score", Text: away, State: "Success"}}
+	return []scoreSightResult{{Name: "Time", Text: main, State: "Success"}, {Name: "Shot Clock", Text: shot, State: "SameNoChange"}, {Name: "Home Score", Text: home, State: "Success"}, {Name: "Away Score", Text: away, State: "Success"}, {Name: "Home Fouls", Text: "0", State: "Success"}, {Name: "Away Fouls", Text: "0", State: "SameNoChange"}, {Name: "Period", Text: "1", State: "Success"}}
 }
 func acceptAll(a *App, results []scoreSightResult) {
 	a.acceptOCR(a.ocrTicketLocked(), results, nil, time.Now())

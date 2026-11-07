@@ -249,7 +249,7 @@ button.touch-select-trigger{display:flex;width:100%;justify-content:space-betwee
 @media(max-width:1300px){.workspace{grid-template-columns:1fr}}
 
 /* ScoreSight connection: large controls, with source health kept off OBS. */
-.ocr-card{margin:20px 0}.ocr-card p{overflow-wrap:anywhere;line-height:1.5}
+.card.ocr-card{margin:20px 0;background:#141414;border:1px solid #505050}.ocr-card p{overflow-wrap:anywhere;line-height:1.5}
 .ocr-settings{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px;align-items:end}
 .ocr-settings label{display:grid;gap:10px;min-width:0;font-size:18px}.ocr-settings input{min-height:64px;width:100%;min-width:0;font-size:20px;border:1px solid #6a829e;border-radius:9px;padding:12px;background:#0a1523;color:#eef8ff}.ocr-settings input:disabled{color:#c4d8e9;background:#142234}.ocr-card h3{font-size:18px}
 .ocr-settings button{min-height:64px;font-size:18px;white-space:normal}
@@ -270,3 +270,17 @@ button.touch-select-trigger{display:flex;width:100%;justify-content:space-betwee
 
 /* Owned scores remain readable while their manual entry buttons are disabled. */
 .numeric-value:disabled{opacity:1;color:#e8f4ff;cursor:default}
+
+/* Decorations are editor-only and never change the shared content geometry. */
+.stage .foul-dot{box-sizing:content-box}
+.stage-editor .stage-element{border:0;padding:0;margin:0;outline:2px dashed transparent;outline-offset:3px}
+.stage-editor .stage-element:hover{outline-color:#8ddcf2aa}.stage-editor .stage-element.selected{outline-color:#54ddc4}
+.element-selection-border{position:absolute;z-index:4;border:2px solid #7cf5de;pointer-events:none}
+.element-handle-guide{position:absolute;z-index:3;border:1px dashed #7cf5de88;pointer-events:none}
+.element-resize-handle{position:absolute;z-index:5;transform:translate(-50%,-50%);width:56px;height:56px;min-height:56px;border:2px solid #c3fff2;background:#176553;color:#fff;font-size:26px;padding:0;touch-action:none;cursor:nwse-resize}
+.element-resize-handle[data-edge="ne"],.element-resize-handle[data-edge="sw"]{cursor:nesw-resize}
+.element-resize-handle[data-edge="n"],.element-resize-handle[data-edge="s"]{cursor:ns-resize}
+.element-resize-handle[data-edge="e"],.element-resize-handle[data-edge="w"]{cursor:ew-resize}
+.element-resize-handle[hidden],.element-selection-border[hidden],.element-handle-guide[hidden]{display:none}
+.element-selection-label{font-size:18px;color:#aaffec;margin:8px 0}.element-transform-controls{padding:14px 0;border-bottom:1px solid #43566d;margin-bottom:16px}
+.element-transform-controls .number-group-grid{display:grid;gap:16px;margin:16px 0}.element-transform-controls button.full{min-height:64px;font-size:18px}

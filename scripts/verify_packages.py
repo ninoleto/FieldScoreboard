@@ -31,7 +31,7 @@ for entry in manifest:
             assert set(names)==expected,'source inventory differs from publication allowlist'
             for filename in names:
                 assert archive.read(filename)==(root/filename.removeprefix(prefix)).read_bytes(),filename
-            for file in ['AGENTS.md','handoff.md',*[f'internal/scoreboard/web/{asset}' for asset in ['app.js','app.css','index.html','background.js','render.js','overlay.css']]]:
+            for file in ['AGENTS.md','handoff.md',*[f'internal/scoreboard/web/{asset}' for asset in ['app.js','app.css','index.html','background.js','elements.js','ocr.js','render.js','overlay.css']]]:
                 assert archive.read(prefix+file)==(root/file).read_bytes(),file
         else:
             binaries=['fieldscoreboard.exe','fieldscoreboard-console.exe'] if '-Windows-' in name else ['fieldscoreboard']
@@ -48,7 +48,7 @@ for entry in manifest:
                     assert data[:6]==b'\x7fELF\x02\x01'
                     assert struct.unpack_from('<H',data,18)[0]==62
                     assert archive.getinfo(filename).external_attr>>16 & 0o111
-                for asset in ['app.js','app.css','index.html','background.js','ocr.js','render.js','overlay.css']:
+                for asset in ['app.js','app.css','index.html','background.js','elements.js','ocr.js','render.js','overlay.css']:
                     assert (root/'internal/scoreboard/web'/asset).read_bytes() in data,(filename,asset)
             assert archive.read('README.md')==(root/'README.md').read_bytes()
             for doc in documentation_files(root):

@@ -94,11 +94,12 @@ def offline_page(browser,width=1440,height=900,overlay=False,has_touch=False,pag
         html=html.replace('<script src="/render.js" defer></script>','').replace('<script src="/overlay.js" defer></script>','')
     else:
         html=(web/'index.html').read_text(encoding='utf-8').replace('<link rel="stylesheet" href="/app.css">', '<style>'+(web/'app.css').read_text(encoding='utf-8')+'</style>')
-        html=html.replace('<script src="/render.js" defer></script>','').replace('<script src="/app.js" defer></script>','').replace('<script src="/background.js" defer></script>','').replace('<script src="/ocr.js" defer></script>','')
+        html=html.replace('<script src="/render.js" defer></script>','').replace('<script src="/app.js" defer></script>','').replace('<script src="/background.js" defer></script>','').replace('<script src="/elements.js" defer></script>','').replace('<script src="/ocr.js" defer></script>','')
     page.set_content(html)
     page.evaluate(mock_js)
     page.add_script_tag(content=(web/'render.js').read_text(encoding='utf-8'))
     if not overlay:page.add_script_tag(content=(web/'background.js').read_text(encoding='utf-8'))
+    if not overlay:page.add_script_tag(content=(web/'elements.js').read_text(encoding='utf-8'))
     if not overlay:page.add_script_tag(content=(web/'ocr.js').read_text(encoding='utf-8'))
     page.add_script_tag(content=(web/('overlay.js' if overlay else 'app.js')).read_text(encoding='utf-8'))
     return page,errors

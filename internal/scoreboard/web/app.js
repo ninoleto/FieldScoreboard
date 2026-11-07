@@ -6,7 +6,7 @@
  const headers=()=>({'Content-Type':'application/json',...(token?{'Authorization':`Bearer ${token}`}:{})});
  let token=sessionStorage.getItem('field_scoreboard_api_token')||'';
  let s=null,layout=null,dirty=false,selected='main_clock',dragging=null,tab='control',pollBusy=false,opBusy=false,messageTimer;
- let backgroundEditor=null,layoutRevision=0,layoutSaveBusy=false;
+ let backgroundEditor=null,elementEditor=null,layoutRevision=0,layoutSaveBusy=false;
  const editorSelection=()=>backgroundEditor?.selected?'background':selected;
  let mainDraftDirty=false,shotDraftDirty=false,networkDirty=false,builderHostDirty=false,stateEpoch=0,ocrPending=0;
  let detectedInterfaces=[],selectedIP='',builderToken=token;
@@ -47,7 +47,7 @@
   $('unsavedBadge').classList.toggle('hidden',!dirty);
   const port=(s.active_listen||s.listen).split(':').pop();$('overlayUrl').textContent=`http://127.0.0.1:${port}/overlay`;
   updateBuilder();
-  backgroundEditor?.sync();
+  backgroundEditor?.sync();elementEditor?.sync();
   ocrControls.sync(s);
   window.refreshTouchOptions?.();
  }
@@ -163,9 +163,9 @@
   stepElement(direction==='left'||direction==='right'?'elementX':'elementY',nudgeSize*(direction==='left'||direction==='up'?-1:1));
  }));
  // All controls below edit a temporary layout until the operator chooses Save.
- function mark(){layoutRevision++;dirty=true;$('unsavedBadge').classList.remove('hidden');if(s){stage.paint($('editorStage'),s,layout,editorSelection(),dragging?.id);stage.scale($('editorStage'))}}
+ function mark(){layoutRevision++;dirty=true;$('unsavedBadge').classList.remove('hidden');if(s){stage.paint($('editorStage'),s,layout,editorSelection(),dragging?.id);stage.scale($('editorStage'));elementEditor?.sync()}}
  const fieldPills=$('fieldPills');for(const id of stage.fieldIDs){const b=document.createElement('button');b.textContent=names[id];b.dataset.field=id;b.addEventListener('click',()=>selectField(id));fieldPills.append(b)}
- function selectField(id){if(!layout||!layout.elements[id])return;backgroundEditor?.select(false);selected=id;updateInspector();if(s)stage.paint($('editorStage'),s,layout,editorSelection(),dragging?.id)}
+ function selectField(id){if(!layout||!layout.elements[id])return;backgroundEditor?.select(false);selected=id;updateInspector();if(s)stage.paint($('editorStage'),s,layout,editorSelection(),dragging?.id);elementEditor?.sync()}
  function updateInspector(){if(!layout)return;const el=layout.elements[selected];if(!el)return;
   fieldPills.querySelectorAll('button').forEach(b=>b.classList.toggle('selected',b.dataset.field===selected));$('selectedTitle').textContent=names[selected];
   $('elementVisible').checked=el.visible;$('elementX').value=el.x;$('elementY').value=el.y;$('elementFont').value=el.font;$('elementSize').value=el.size;$('elementAlign').value=el.align;$('elementColor').value=el.color;$('elementBold').checked=el.bold;
@@ -181,16 +181,7 @@
  [['elementFont','font'],['elementAlign','align'],['elementColor','color']].forEach(([id,prop])=>$(id).addEventListener('change',()=>change(prop,$(id).value)));
  [['homeFoulStyle','foul_style_home'],['awayFoulStyle','foul_style_away'],['mainFormat','main_clock_format'],['shotFormat','shot_clock_format']].forEach(([id,prop])=>$(id).addEventListener('change',()=>{layout[prop]=$(id).value;mark()}));
  $('foulDotsMax').addEventListener('change',()=>{const n=Number($('foulDotsMax').value);layout.foul_dots_max=Math.min(20,Math.max(1,Math.round(n||5)));$('foulDotsMax').value=layout.foul_dots_max;mark()});
- const editor=$('editorStage');editor.addEventListener('pointerdown',event=>{
-  const element=event.target.closest('.stage-element');if(!element)return;event.preventDefault();editor.focus({preventScroll:true});const id=element.dataset.id;selectField(id);
-  dragging={id,x:event.clientX,y:event.clientY,baseX:layout.elements[id].x,baseY:layout.elements[id].y,node:element};element.classList.add('dragging');element.setPointerCapture(event.pointerId);
- });
- editor.addEventListener('pointermove',event=>{
-  if(!dragging)return;const scale=stage.scale(editor);const el=layout.elements[dragging.id];el.x=Math.min(1920,Math.max(0,Math.round(dragging.baseX+(event.clientX-dragging.x)/scale)));el.y=Math.min(1080,Math.max(0,Math.round(dragging.baseY+(event.clientY-dragging.y)/scale)));
-  dragging.node.style.left=el.x+'px';dragging.node.style.top=el.y+'px';$('elementX').value=el.x;$('elementY').value=el.y;dirty=true;$('unsavedBadge').classList.remove('hidden');
- });
- function dragDone(){if(!dragging)return;dragging.node.classList.remove('dragging');dragging=null;mark()}
- editor.addEventListener('pointerup',dragDone);editor.addEventListener('pointercancel',dragDone);
+ const editor=$('editorStage');
  document.addEventListener('keydown',ev=>{if(tab!=='editor'||!layout||!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(ev.key))return;
   if(ev.defaultPrevented||$('touchChoiceDialog').open||['INPUT','SELECT','TEXTAREA','BUTTON'].includes(document.activeElement?.tagName))return;
   ev.preventDefault();const step=ev.shiftKey?10:1;
@@ -201,25 +192,26 @@
   updateInspector();mark();
  });
  backgroundEditor=window.createBackgroundEditor({getLayout:()=>layout,mark,message});
- editor.addEventListener('backgroundselection',()=>{if(s)stage.paint(editor,s,layout,editorSelection(),dragging?.id)});
+ elementEditor=window.createElementEditor({getLayout:()=>layout,getSelected:editorSelection,selectField,mark,updateInspector,message,names});
+ editor.addEventListener('backgroundselection',()=>{if(s)stage.paint(editor,s,layout,editorSelection(),dragging?.id);elementEditor.sync()});
  document.querySelector('.inspector').addEventListener('focusin',()=>{if(backgroundEditor.selected)backgroundEditor.select(false)});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&tab==='editor'&&!$('touchChoiceDialog').open)backgroundEditor.select(false)});
  async function saveLayout(){
-  if(!layout||layoutSaveBusy||!backgroundEditor.commitDrafts())return false;
+  if(!layout||layoutSaveBusy||!backgroundEditor.commitDrafts()||!elementEditor.commitDrafts())return false;
   const revision=layoutRevision,payload=fullLayout();layoutSaveBusy=true;$('saveLayout').disabled=true;
   try{
    const updated=await api('/api/layout','PUT',payload);s=updated;
-   if(layoutRevision===revision){layout=JSON.parse(JSON.stringify(s.layout));dirty=false;backgroundEditor.resetDrafts();updateInspector();draw();message('Layout saved for OBS.',true);return true}
+   if(layoutRevision===revision){layout=JSON.parse(JSON.stringify(s.layout));dirty=false;backgroundEditor.resetDrafts();elementEditor.resetDrafts();updateInspector();draw();message('Layout saved for OBS.',true);return true}
    draw();message('Layout saved. Newer edits are still unsaved.',true);return false;
   }catch(err){message(err.message);return false}
   finally{layoutSaveBusy=false;$('saveLayout').disabled=false}
  }
  $('saveLayout').addEventListener('click',saveLayout);
- $('discardLayout').addEventListener('click',()=>{if(dirty&&!confirm('Discard unsaved element positions and appearance?'))return;layout=JSON.parse(JSON.stringify(s.layout));dirty=false;backgroundEditor.resetDrafts();updateInspector();draw()});
+ $('discardLayout').addEventListener('click',()=>{if(dirty&&!confirm('Discard unsaved element positions and appearance?'))return;layout=JSON.parse(JSON.stringify(s.layout));dirty=false;backgroundEditor.resetDrafts();elementEditor.resetDrafts();updateInspector();draw()});
  $('resetPositions').addEventListener('click',()=>{if(!confirm('Restore default positions and font styles? Your imported graphic will be kept.'))return;
   // The defaults are constant and ship embedded as data from the server; do not lose current background or foul/clock settings.
   const defaults={period:[95,62,54],main_clock:[305,52,70],shot_clock:[670,62,54],home_name:[920,74,50],home_score:[1175,49,90],away_score:[1400,49,90],away_name:[1625,74,50],home_fouls:[1135,175,32],away_fouls:[1390,175,32]};
-  for(const [id,[x,y,size]] of Object.entries(defaults)){Object.assign(layout.elements[id],{x,y,size})}updateInspector();mark();
+  for(const [id,[x,y,size]] of Object.entries(defaults)){Object.assign(layout.elements[id],{x,y,size});delete layout.elements[id].transform}elementEditor.resetDrafts();updateInspector();mark();
  });
  $('importBackground').addEventListener('click',()=>$('backgroundFile').click());
  $('backgroundFile').addEventListener('change',async ev=>{
@@ -241,7 +233,7 @@
  });
  async function refreshProfiles(){try{const x=await api('/api/profiles');const selected=$('profileSelect').value;$('profileSelect').replaceChildren(new Option('Select a saved profile',''));for(const name of x.profiles)$('profileSelect').add(new Option(name,name));$('profileSelect').value=x.profiles.includes(selected)?selected:'';window.refreshTouchOptions?.()}catch(err){message(err.message)}}
  $('saveProfile').addEventListener('click',async()=>{const name=$('profileName').value.trim();if(!name){message('Enter a preset name.');return}if(dirty&&!await saveLayout())return;try{await api('/api/profiles','POST',{name,action:'save'});await refreshProfiles();$('profileSelect').value=name;window.refreshTouchOptions?.();message('Preset saved.',true)}catch(err){message(err.message)}});
- $('loadProfile').addEventListener('click',async()=>{const name=$('profileSelect').value;if(!name)return;if(dirty&&!confirm('Discard unsaved changes and load the preset?'))return;try{s=await api('/api/profiles','POST',{name,action:'load'});layout=JSON.parse(JSON.stringify(s.layout));dirty=false;backgroundEditor.resetDrafts();backgroundEditor.select(false);updateInspector();draw();message('Preset loaded.',true)}catch(err){message(err.message)}});
+ $('loadProfile').addEventListener('click',async()=>{const name=$('profileSelect').value;if(!name)return;if(dirty&&!confirm('Discard unsaved changes and load the preset?'))return;try{s=await api('/api/profiles','POST',{name,action:'load'});layout=JSON.parse(JSON.stringify(s.layout));dirty=false;backgroundEditor.resetDrafts();backgroundEditor.select(false);elementEditor.resetDrafts();updateInspector();draw();message('Preset loaded.',true)}catch(err){message(err.message)}});
  $('deleteProfile').addEventListener('click',async()=>{const name=$('profileSelect').value;if(!name||!confirm(`Delete saved preset “${name}”?`))return;try{await api('/api/profiles','POST',{name,action:'delete'});await refreshProfiles();message('Preset removed.',true)}catch(err){message(err.message)}});
  function overlayUrl(){return $('overlayUrl').textContent}
  $('openOverlay').addEventListener('click',()=>window.open(overlayUrl(),'field_scoreboard_overlay','noopener'));

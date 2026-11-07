@@ -1,6 +1,6 @@
 'use strict';
 window.FieldOCRControls={create({api,begin,finish,apply,message}){
- const $=id=>document.getElementById(id),targets=['main','shot','home_score','away_score'];
+ const $=id=>document.getElementById(id),targets=['main','shot','home_score','away_score','home_fouls','away_fouls','period'];
  const el=(target,suffix)=>$('ocr-'+target+'-'+suffix);
  let addressDirty=false,connecting=false,current=null;
  const busy=new Set(),signatures={};
@@ -66,12 +66,12 @@ window.FieldOCRControls={create({api,begin,finish,apply,message}){
   const clockOwned=follows('main')||follows('shot');
   document.querySelectorAll('[data-clock-action^="both:"]').forEach(b=>b.disabled=clockOwned);
   $('bothOCRHelp').hidden=!clockOwned;
-  for(const target of ['home_score','away_score']){
-   document.querySelectorAll(`[data-adjust^="${target}:"],[data-exact="${target}"]`).forEach(b=>b.disabled=follows(target));
-   $(target==='home_score'?'homeScoreOwner':'awayScoreOwner').hidden=!follows(target);
+  for(const target of ['home_score','away_score','home_fouls','away_fouls','period']){
+   document.querySelectorAll(`[data-adjust^="${target}:"],[data-exact="${target}"]`).forEach(b=>b.disabled=follows(target)||(target==='period'&&!!b.dataset.adjust&&state.period_overtime));
+   const owner={home_score:'homeScoreOwner',away_score:'awayScoreOwner',home_fouls:'homeFoulsOwner',away_fouls:'awayFoulsOwner',period:'periodOwner'};$(owner[target]).hidden=!follows(target);
   }
   // Server guards also reject stale dialogs and external API/Companion requests.
-  const reset=$('resetMatch');if(reset)reset.disabled=follows('home_score')||follows('away_score');
+  const reset=$('resetMatch');if(reset)reset.disabled=['home_score','away_score','home_fouls','away_fouls','period'].some(follows);
   window.refreshTouchOptions?.();
  }
  return {sync};

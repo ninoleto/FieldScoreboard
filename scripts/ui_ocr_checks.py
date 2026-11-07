@@ -2,7 +2,7 @@
 import os,shutil
 from playwright.sync_api import sync_playwright
 from ui_touch_checks import choose,navigate,no_overflow
-from ocr_mapping_checks import TARGETS
+TARGETS=('main','shot','home_score','away_score','home_fouls','away_fouls','period')
 
 def verify_ocr_ui(base,request,wait_for,fixture,root,address):
     def order(page):
@@ -57,7 +57,14 @@ def verify_ocr_ui(base,request,wait_for,fixture,root,address):
                 assert page.locator('[data-clock-action="shot:start"]').is_enabled()
                 assert page.locator('#awayScore').is_enabled()
                 assert page.locator('#ocr-shot-fieldChoice').is_enabled()
+                for target,id in [('home_fouls','homeFouls'),('away_fouls','awayFouls'),('period','periodValue')]:
+                    page.locator(f'#ocr-{target}-follow').click();page.wait_for_function('(id)=>document.getElementById(id).disabled',arg=id)
+                    assert page.locator(f'[data-adjust="{target}:1"]').is_disabled() and page.locator('#resetMatch').is_disabled()
+                    assert page.locator('#periodOT').is_enabled(),'OT must remain an explicit manual display toggle'
+                    page.locator(f'#ocr-{target}-manual').click();page.wait_for_function('(id)=>!document.getElementById(id).disabled',arg=id)
                 order(page);no_overflow(page)
+                assert page.locator('.ocr-card').evaluate('e=>getComputedStyle(e).backgroundColor')=='rgb(20, 20, 20)'
+                assert page.locator('.ocr-target').first.evaluate('e=>getComputedStyle(e).backgroundColor')=='rgb(16, 29, 45)'
                 # Connection health changes must not focus or scroll to OCR.
                 page.locator('#homeName').focus();page.evaluate('scrollTo(0,0)');fixture['status']=503
                 page.wait_for_function("()=>document.getElementById('ocrConnection').textContent==='Connection lost / unavailable'")
@@ -65,10 +72,10 @@ def verify_ocr_ui(base,request,wait_for,fixture,root,address):
                 order(page);fixture['status']=200
                 page.wait_for_function("()=>document.getElementById('ocrConnection').textContent==='Connected to ScoreSight'")
                 assert page.evaluate('scrollY')==0
-                page.screenshot(path=str(root/f'.test/ocr10-live-{width}.png'),full_page=True)
-                page.locator('.ocr-card').screenshot(path=str(root/f'.test/ocr10-panel-{width}.png'))
+                page.screenshot(path=str(root/f'.test/ocr11-live-{width}.png'),full_page=True)
+                page.locator('.ocr-card').screenshot(path=str(root/f'.test/ocr11-panel-{width}.png'))
                 if width==1920:
-                    page.evaluate('scrollTo(0,0)');page.screenshot(path=str(root/'.test/ocr10-maximized-1920x1080.png'))
+                    page.evaluate('scrollTo(0,0)');page.screenshot(path=str(root/'.test/ocr11-maximized-1920x1080.png'))
                 if width==1920:
                     page.evaluate('window.__holdState=true');page.wait_for_function('()=>window.__heldState===true')
                 if width==375:page.locator('#ocr-main-manual').tap()
@@ -89,7 +96,7 @@ def verify_ocr_ui(base,request,wait_for,fixture,root,address):
                 page=context.new_page();page.goto(base);page.wait_for_function("()=>document.getElementById('ocrConnection').textContent==='Connected to ScoreSight'")
                 order(page);no_overflow(page)
                 page.locator('#ocr-main-fieldChoice').click();no_overflow(page)
-                page.screenshot(path=str(root/f'.test/ocr10-zoom-{zoom*100}.png'));page.keyboard.press('Escape')
+                page.screenshot(path=str(root/f'.test/ocr11-zoom-{zoom*100}.png'));page.keyboard.press('Escape')
                 assert page.locator('#ocr-main-fieldChoice').evaluate('e=>e===document.activeElement')
                 print('OCR zoom equivalent',zoom*100,'PASS',flush=True);context.close()
         finally:browser.close()
