@@ -1,11 +1,11 @@
 # ScoreSight connection: current scope and future work
 
-## Setup in v0.1.0
+## Setup in v0.1.1
 
 Field Scoreboard supports seven independent targets: **match clock, shot clock, home/away scores, home/away fouls and numeric period**, with older saved mappings preserved.  The entire ScoreSight section is at the **bottom of Live control**, after scores, fouls, period, Both clocks and both individual clock panels and Foul indicators, before the footer. Polling does not scroll or move focus there.
 
 1. Enter the ScoreSight address, default `http://127.0.0.1:18099`. The connection is made by the Field Scoreboard server, not the browser/tablet. A private LAN IP is also supported.
-2. Choose the red **Not connected — Connect** button. **Connecting…** prevents duplicate requests. A successful check shows green **Connected — Check connection**; failure/loss shows a red Retry/Reconnect label. The button updates with actual connection state, separately from field ownership and camera freshness. Take all fields manual before rechecking/changing the connection; the disabled action has a visible explanation. One connection monitors all discovered fields, without taking control. Suggested mappings are selected only when the corresponding names actually exist:
+2. Choose **Connect**. A separate **Disconnect** button stops monitoring. The top-right badge uses text and color: **Not connected** (red), **Connecting…** (amber), **Connected** (green), and **Connection failed** or **Connection lost** (red). Connect is disabled while connecting/connected; Disconnect is enabled while monitoring, including failed/lost states. Buttons guard pending requests against duplicates. The address stays locked until Disconnect. Backend connection status does not depend on which fields follow OCR, and a successful connection never verifies camera freshness. One connection monitors all discovered fields, without taking control. Suggested mappings are selected only when the corresponding names actually exist:
 
    | Target | Suggested source | Accepted values |
    |---|---|---|
@@ -21,7 +21,9 @@ Field Scoreboard supports seven independent targets: **match clock, shot clock, 
 4. Choose **Follow OCR** separately for each target. Mixed operation is supported: for example OCR match time and scores with a manual shot clock. Merely connecting or selecting a source never changes displayed values.
 5. **Take manual control** immediately releases that target, retains its displayed value and leaves a clock paused. Press Start / Resume to time manually. Other targets keep following. Monitoring can continue, but following again always requires an explicit action.
 
-Clocks follow accepted source values without an independent internal countdown. Source pauses and resets appear in subsequent readings; a valid zero is accepted. Missing, rejected or malformed readings never clear a field or turn it into zero. Failure of one field does not block the others. Connection loss holds all displayed values; recovery resumes only targets still following.
+6. **Disconnect** stops backend polling and cancels in-flight source requests. It returns all followed fields to manual with their displayed values retained; followed clocks stay paused. Address and source mappings remain, including explicit unconfigured mappings. **Connect** after Disconnect, or an explicit Connect retry after failure/loss, never restores ownership or starts a clock. Select Follow OCR again for each desired target. Independent manual clocks are unaffected.
+
+Clocks follow accepted source values without an independent internal countdown. Source pauses and resets appear in subsequent readings; a valid zero is accepted. Missing, rejected or malformed readings never clear a field or turn it into zero. Failure of one field does not block the others. Connection loss holds displayed OCR values while monitoring continues; automatic source recovery updates only targets still following. Disconnect or an explicit Connect retry releases that ownership, so subsequent readings cannot change the displayed values until Follow OCR is chosen again.
 
 Manual controls and API/Companion actions cannot change an OCR-owned field. **Both clocks actions reject the entire operation when either clock follows**, leaving both unchanged. Reset scores & fouls rejects the entire operation while any score, foul count or period follows; no other value is reset. Other manual controls remain available. Because OCR cannot prove running status, a manual shot Reset/Set/preset stays Ready while the match clock follows OCR; start the shot clock explicitly. Normal conditional shot-reset behavior returns in manual mode. Auto-hide compares the effective match and shot values (configured duration minus elapsed for count-up match time).
 
@@ -47,23 +49,24 @@ One Go worker polls approximately five times per second with an 800 ms request t
 
 Recognition is independent of **Period format** (Number/Ordinal/Quarter) beside the manual controls. The period remains numeric; raw source text stays in Recognised value, and the period card's last accepted value is the normalized number. OT overrides the displayed label without changing the chosen format, and OCR never toggles OT.
 
-Address and mappings persist in optional config `ocr`. Test.9 `field` settings migrate to the main mapping. Suggestions are saved; an explicit empty mapping stays empty. Connection, observations, ownership and clock progress are runtime-only. Accepted score, foul and period changes use normal game persistence, without writing identical reads repeatedly. **Restart is manual/Ready and disconnected** with saved scores and mappings retained. Take all fields manual before changing/rechecking the connection; an individual manual target can be remapped while others follow.
+Address and mappings persist in optional config `ocr`. Test.9 `field` settings migrate to the main mapping. Suggestions are saved; an explicit empty mapping stays empty. Connection, observations, ownership and clock progress are runtime-only. Accepted score, foul and period changes use normal game persistence, without writing identical reads repeatedly. **Restart is manual/Ready and disconnected** with saved scores and mappings retained. Disconnect before changing the address. An individual manual target can be remapped while others follow.
 
 All routes below require JSON content type and the existing bearer header for remote callers:
 
 | POST route | Body |
 |---|---|
 | `/api/ocr/connect` | `{"address":"http://127.0.0.1:18099"}` |
+| `/api/ocr/disconnect` | `{}`; cancel monitoring and release all followed targets |
 | `/api/ocr/field` | `{"target":"main","field":"Time"}` (empty field unconfigures) |
 | `/api/ocr/follow` | `{"target":"main"}` |
 | `/api/ocr/manual` | `{"target":"main"}` |
 
 Targets are `main`, `shot`, `home_score`, `away_score`, `home_fouls`, `away_fouls`, `period`; omitted target means `main` for test.9 API compatibility. `/api/state` exposes per-target status under `ocr.targets` and retains legacy main aliases. The read-only OBS feed exposes effective clock/score values, without OCR address, source list or warnings.
 
-Connection generations and per-target revisions discard late responses only for changed targets. Takeover does not wait for network I/O. Browser poll responses begun before a control action are also discarded. OCR never repeatedly invokes Set/Start or alters configured durations/direction.
+Disconnect invalidates the entire connection generation, so late successes/failures cannot change any state even after reconnect. Per-target revisions separately discard late responses for individual takeovers/mapping changes. The state includes `ocr.monitoring` independently of `ocr.connection` and field ownership. Repeated Connect calls for the same healthy/pending connection are idempotent; changing an active address is rejected until Disconnect. Takeover does not wait for network I/O. Browser poll responses begun before a control action are also discarded. OCR never repeatedly invokes Set/Start or alters configured durations/direction.
 
 ## Evidence and future work
 
-See [v0.1.0 release verification](VERIFICATION-v0.1.0.md) and the historical [test.17 shot/name verification](VERIFICATION-v0.1.0-test.17.md), [test.16 preset/font verification](VERIFICATION-v0.1.0-test.16.md), [test.15 clock verification](VERIFICATION-v0.1.0-test.15.md), [test.14 interface verification](VERIFICATION-v0.1.0-test.14.md), [test.13 period verification](VERIFICATION-v0.1.0-test.13.md), historical [test.12 regression checks](VERIFICATION-v0.1.0-test.12.md), [test.11 verification](VERIFICATION-v0.1.0-test.11.md) and historical [test.9 verification](VERIFICATION-v0.1.0-test.9.md). On 2026-11-06 the operator reported match-clock OCR working in the home setup with test.9. **This is not venue validation.** Automated source pauses/resets/failures are simulations; Field Timer and the live source were not controlled by those tests.
+See [v0.1.1 review verification](VERIFICATION-v0.1.1.md), [v0.1.0 release verification](VERIFICATION-v0.1.0.md) and the historical [test.17 shot/name verification](VERIFICATION-v0.1.0-test.17.md), [test.16 preset/font verification](VERIFICATION-v0.1.0-test.16.md), [test.15 clock verification](VERIFICATION-v0.1.0-test.15.md), [test.14 interface verification](VERIFICATION-v0.1.0-test.14.md), [test.13 period verification](VERIFICATION-v0.1.0-test.13.md), historical [test.12 regression checks](VERIFICATION-v0.1.0-test.12.md), [test.11 verification](VERIFICATION-v0.1.0-test.11.md) and historical [test.9 verification](VERIFICATION-v0.1.0-test.9.md). On 2026-11-06 the operator reported match-clock OCR working in the home setup with test.9. **This is not venue validation.** Automated source pauses/resets/failures are simulations; Field Timer and the live source were not controlled by those tests.
 
 Future work: verified detection freshness if supplied upstream, confidence/stability policy, multiple sources and venue evaluation. Automatic sport rules and guaranteed OCR accuracy are not included.

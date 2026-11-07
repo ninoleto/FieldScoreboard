@@ -37,17 +37,34 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
             assert page.locator('#scoreboardDisplay h4').count()==0
             assert page.locator('#scoreboardDisplay > .note').first.inner_text()=='Changes appear immediately in the preview and OBS.'
             assert page.locator('footer').inner_text()=='Field Scoreboard · Free & open source · Windows & Linux'
-            assert page.locator('.version').inner_text()=='v0.1.0'
+            assert page.locator('.version').inner_text()=='v0.1.1'
             page.on('dialog',lambda d:d.accept())
             def rect(selector):return page.locator(selector).bounding_box()
             assert page.evaluate("()=>document.getElementById('tab-control').lastElementChild.matches('.ocr-card')")
             d=rect('#scoreboardDisplay');preview=rect('#livePreview')
-            if width>=1440:assert abs(d['x']-preview['x'])<1 and abs(d['width']-preview['width'])<1 and 15<=d['y']-preview['y']-preview['height']<=30
+            if width>=1440:
+                # The spanning score card can add space to the two left grid
+                # rows (also true in v0.1.0); compare actual column boundaries.
+                scores=rect('.match-card')
+                assert abs(d['x']-preview['x'])<1 and abs(d['width']-preview['width'])<1
+                assert d['y']>=preview['y']+preview['height']+16 and d['y']+d['height']<=scores['y']+scores['height']+1
             else:assert d['y']>=rect('.clock-grid')['y']+rect('.clock-grid')['height']
             assert d['y']+d['height']<rect('.ocr-card')['y'];no_overflow(page)
             page.screenshot(path=str(root/f'.test/display14-live-{width}.png'),full_page=True)
             if width==1920:page.screenshot(path=str(root/'.test/display14-maximized-1920x1080.png'))
             navigate(page,'editor');assert page.locator('#tab-editor #mainFormat,#tab-editor #homeFoulStyle').count()==0
+            assert page.locator('#tab-editor > .section-head button').all_inner_texts()==['Restore Defaults','Discard','Save Layout']
+            assert page.locator('.inspector #resetPositions').count()==0
+            assert page.evaluate("()=>{const p=document.querySelector('.position-grid'),h=document.querySelector('.inspector-help');return p.nextElementSibling===h&&h.nextElementSibling.matches('.nudge-tool')}")
+            left=rect('.editor-card');right=rect('.inspector');profiles=rect('.layout-profiles')
+            assert profiles['y']>=max(left['y']+left['height'],right['y']+right['height'])+16
+            assert abs(profiles['width']-rect('.editor-workspace')['width'])<1
+            assert page.locator('.layout-profiles #profileSelect,.layout-profiles #loadProfile,.layout-profiles #deleteProfile,.layout-profiles #profileName,.layout-profiles #saveProfile').count()==5
+            if width>=1440:
+                assert abs(left['y']-right['y'])<1 and abs(left['y']+left['height']-right['y']-right['height'])<1,(left,right)
+            else:assert right['y']>=left['y']+left['height']+16
+            for id in ('resetPositions','discardLayout','saveLayout','profileName','loadProfile','deleteProfile','saveProfile'):
+                assert rect('#'+id)['height']>=64,(width,id)
             pills=page.locator('#fieldPills button');assert pills.evaluate_all('els=>els.map(e=>e.dataset.field)')==order
             pills.first.focus()
             for i,id in enumerate(order):
@@ -99,6 +116,24 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
         navigate(page,'editor');choose(page,'profileSelect','Display test');page.locator('#loadProfile').click()
         page.wait_for_function("()=>document.getElementById('foulDotsMax').value==='12'")
         assert prefs(request('/api/state'))==saved_preferences and game(request('/api/state'))==original
+        # Restore Defaults edits only the draft's historical position/size scope.
+        before_reset=request('/api/state');profiles_before=request('/api/profiles')
+        page.locator('#resetPositions').click()
+        assert request('/api/state')['layout']==before_reset['layout']
+        assert game(request('/api/state'))==original and request('/api/profiles')==profiles_before
+        assert page.locator('#elementX').input_value()=='1175'
+        page.locator('#discardLayout').click();assert page.locator('#elementX').input_value()=='811'
+        page.locator('#resetPositions').click();save(page)
+        reset_state=request('/api/state')
+        assert game(reset_state)==original and request('/api/profiles')==profiles_before
+        assert reset_state['layout']['background']==before_reset['layout']['background']
+        assert prefs(reset_state)==saved_preferences
+        choose(page,'profileSelect','Display test');page.locator('#loadProfile').click()
+        page.wait_for_function("()=>document.getElementById('elementX').value==='811'")
+        loaded=request('/api/state');page.locator('#deleteProfile').click()
+        page.wait_for_function("()=>![...document.getElementById('profileSelect').options].some(o=>o.value==='Display test')")
+        assert request('/api/profiles')['profiles']==[]
+        assert request('/api/state')['layout']==loaded['layout'] and game(request('/api/state'))==original
         # Delay a display response: Save waits, retains geometry and the queued preferences.
         page.evaluate("""()=>{const displayFetch=window.fetch;window.fetch=async(...args)=>{const r=await displayFetch(...args);if(args[0]==='/api/display'&&window.holdDisplay){window.holdDisplay=false;await new Promise(resolve=>{window.releaseDisplay=resolve;window.displayHeld=true})}return r}}""")
         number(page,'elementX',844);navigate(page,'control');page.evaluate('window.holdDisplay=true');choose(page,'shotFormat','SS.t');page.wait_for_function('()=>window.displayHeld')

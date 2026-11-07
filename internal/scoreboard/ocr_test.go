@@ -279,7 +279,7 @@ func TestOCRLoopBoundedNoOverlapRecoveryAndTakeover(t *testing.T) {
 func TestOCRAuthenticationAndOverlayPrivacy(t *testing.T) {
 	a := appForTest(t)
 	s, _ := NewServer(a)
-	for _, path := range []string{"connect", "field", "follow", "manual"} {
+	for _, path := range []string{"connect", "disconnect", "field", "follow", "manual"} {
 		r := httptest.NewRequest("POST", "/api/ocr/"+path, strings.NewReader(`{}`))
 		r.RemoteAddr = "192.168.1.23:1234"
 		r.Header.Set("Content-Type", "application/json")

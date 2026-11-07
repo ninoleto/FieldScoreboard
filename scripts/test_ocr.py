@@ -33,12 +33,13 @@ def wait_for(predicate,timeout=5):
         time.sleep(.05)
     raise AssertionError('Timed out: '+json.dumps(state.get('ocr',{})))
 
-fixture={'text':'12:34','state':'SameNoChange','status':200,'missing':False,'extra':False,'home':'999','shot':'00:01','away':'7','delay':0,'home_fouls':'3','away_fouls':'2','period':'4'}
+fixture={'text':'12:34','state':'SameNoChange','status':200,'missing':False,'extra':False,'home':'999','shot':'00:01','away':'7','delay':0,'home_fouls':'3','away_fouls':'2','period':'4','requests':0}
 entered=threading.Event()
 class Source(BaseHTTPRequestHandler):
     def log_message(self,*args):pass
     def do_GET(self):
         assert self.path=='/json' and self.headers.get('Authorization') is None
+        fixture['requests']+=1
         state=fixture.copy()
         payload=[] if state['missing'] else [{'name':'Time','text':state['text'],'state':state['state'],'rect':{'x':1,'y':2,'width':100,'height':50}}]
         # Discovered fields stay manual until individually followed.
@@ -50,7 +51,8 @@ class Source(BaseHTTPRequestHandler):
         if state['delay']:entered.set();time.sleep(state['delay'])
         if state['extra']:payload.append({'name':'Alternate','text':'03:21','state':'Success'})
         self.send_response(state['status']);self.send_header('Content-Type','application/json');self.end_headers()
-        self.wfile.write(json.dumps(payload).encode())
+        try:self.wfile.write(json.dumps(payload).encode())
+        except (BrokenPipeError,ConnectionResetError,ConnectionAbortedError):pass # Intentional request cancellation.
 
 source=ThreadingHTTPServer(('127.0.0.1',0),Source)
 threading.Thread(target=source.serve_forever,daemon=True).start()
@@ -128,6 +130,8 @@ with tempfile.TemporaryDirectory() as folder:
                 verify_seven(request,wait_for,fixture,entered)
                 from period_checks import verify_period_formats
                 verify_period_formats(request,wait_for,fixture)
+                from ocr_connection_checks import verify_connection
+                verify_connection(request,wait_for,fixture,entered)
             if args.ui:
                 from ui_ocr_checks import verify_ocr_ui
                 verify_ocr_ui(base,request,wait_for,fixture,root,address)

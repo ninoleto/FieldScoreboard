@@ -273,6 +273,14 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		s.done(w, s.App.ConnectOCR(v.Address))
+	case p == "ocr/disconnect" && r.Method == "POST":
+		var v struct{}
+		if err := decode(r, &v); err != nil {
+			apiErr(w, 400, err.Error())
+			return
+		}
+		s.App.DisconnectOCR()
+		s.done(w, nil)
 	case p == "ocr/field" && r.Method == "POST":
 		var v struct {
 			Field  string `json:"field"`

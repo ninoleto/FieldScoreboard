@@ -53,6 +53,7 @@ type OCRSnapshot struct {
 	Address           string                       `json:"address"`
 	Fields            []string                     `json:"fields"`
 	Connection        string                       `json:"connection"`
+	Monitoring        bool                         `json:"monitoring"`
 	ResponseAgeMS     int64                        `json:"response_age_ms"`
 	Freshness         string                       `json:"freshness"`
 	ConnectionWarning string                       `json:"connection_warning"`
@@ -75,6 +76,7 @@ type ocrRuntime struct {
 	active     bool
 	generation uint64
 	responseAt time.Time
+	cancel     context.CancelFunc
 }
 type ocrTicket struct {
 	generation uint64
@@ -213,7 +215,7 @@ func (a *App) ocrGuardLocked(target string) error {
 	return nil
 }
 func (a *App) ocrSnapshotLocked(now time.Time) OCRSnapshot {
-	v := OCRSnapshot{Address: a.ocr.Address, Fields: append([]string{}, a.ocr.Fields...), Connection: a.ocr.Connection, ResponseAgeMS: -1, Freshness: "unavailable", ConnectionWarning: a.ocr.warning, Targets: map[string]OCRTargetSnapshot{}}
+	v := OCRSnapshot{Address: a.ocr.Address, Fields: append([]string{}, a.ocr.Fields...), Connection: a.ocr.Connection, Monitoring: a.ocr.active, ResponseAgeMS: -1, Freshness: "unavailable", ConnectionWarning: a.ocr.warning, Targets: map[string]OCRTargetSnapshot{}}
 	if !a.ocr.responseAt.IsZero() {
 		v.ResponseAgeMS = now.Sub(a.ocr.responseAt).Milliseconds()
 	}
@@ -267,9 +269,14 @@ func (a *App) ConnectOCR(address string) error {
 	}
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	for _, target := range ocrTargets {
-		if err := a.ocrGuardLocked(target); err != nil {
-			return err
+	if a.ocr.active {
+		if address != a.ocr.Address {
+			return errors.New("disconnect before changing the ScoreSight address")
+		}
+		// Repeated requests from another tab must not restart a healthy or pending
+		// connection, invalidate readings, or queue extra polls.
+		if a.ocr.Connection != "error" {
+			return nil
 		}
 	}
 	settings := &OCRSettings{Address: address}
@@ -279,11 +286,38 @@ func (a *App) ConnectOCR(address string) error {
 	if err := a.saveOCRSettingsLocked(settings); err != nil {
 		return err
 	}
+	// An explicit retry also returns owned fields to manual. Merely connecting
+	// never grants OCR ownership or starts a clock.
+	a.disconnectOCRLocked()
 	generation := a.ocr.generation + 1
 	a.ocr = newOCRRuntime(settings)
 	a.ocr.active, a.ocr.generation, a.ocr.Connection = true, generation, "connecting"
 	a.wakeOCRLocked()
 	return nil
+}
+func (a *App) DisconnectOCR() {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.disconnectOCRLocked()
+}
+func (a *App) disconnectOCRLocked() {
+	if a.ocr.cancel != nil {
+		a.ocr.cancel()
+		a.ocr.cancel = nil
+	}
+	a.ocr.active = false
+	a.ocr.generation++
+	a.ocr.Connection, a.ocr.warning = "disconnected", ""
+	a.ocr.responseAt = time.Time{}
+	for target, t := range a.ocr.targets {
+		a.takeOCRManualLocked(target, t)
+		t.valid = false
+		t.Warning = ""
+		t.Reading, t.DetectionState = "disconnected", ""
+		if t.Field == "" {
+			t.Reading = "unconfigured"
+		}
+	}
 }
 func (a *App) SelectOCRField(field string) error { return a.SelectOCRMapping("main", field) }
 func (a *App) SelectOCRMapping(target, field string) error {
@@ -348,6 +382,10 @@ func (a *App) TakeOCRManual(target string) error {
 	if t == nil {
 		return errors.New("unknown OCR target")
 	}
+	a.takeOCRManualLocked(target, t)
+	return nil
+}
+func (a *App) takeOCRManualLocked(target string, t *ocrTargetRuntime) {
 	if t.Following {
 		t.Following = false
 		if target == "main" {
@@ -358,7 +396,6 @@ func (a *App) TakeOCRManual(target string) error {
 		}
 	}
 	t.revision++
-	return nil
 }
 func (a *App) applyOCRValueLocked(target string, value int) error {
 	if target == "main" || target == "shot" {
@@ -570,12 +607,21 @@ func (a *App) RunOCR(ctx context.Context) {
 			}
 			a.mu.Lock()
 			active, address, ticket := a.ocr.active, a.ocr.Address, a.ocrTicketLocked()
-			a.mu.Unlock()
 			if !active {
+				a.mu.Unlock()
 				continue
 			}
-			results, err := fetchScoreSight(ctx, client, address)
+			requestCtx, cancel := context.WithCancel(ctx)
+			a.ocr.cancel = cancel
+			a.mu.Unlock()
+			results, err := fetchScoreSight(requestCtx, client, address)
+			cancel()
 			a.acceptOCR(ticket, results, err, time.Now())
+			a.mu.Lock()
+			if ticket.generation == a.ocr.generation {
+				a.ocr.cancel = nil
+			}
+			a.mu.Unlock()
 		}
 	})
 }

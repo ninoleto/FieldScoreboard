@@ -22,24 +22,29 @@ def verify_ocr_ui(base,request,wait_for,fixture,root,address):
                 page.add_init_script('''const originalFetch=window.fetch;window.fetch=async(...args)=>{
                   const response=await originalFetch(...args);
                   if(args[0]==='/api/state'&&window.__holdState){window.__holdState=false;await new Promise(resolve=>{window.__releaseState=resolve;window.__heldState=true})}
+                  if(args[0]==='/api/ocr/disconnect'){window.__disconnectCount=(window.__disconnectCount||0)+1;if(window.__holdDisconnect){window.__holdDisconnect=false;await new Promise(resolve=>{window.__releaseDisconnect=resolve;window.__heldDisconnect=true})}}
                   if(args[0]==='/api/ocr/connect'){window.__connectCount=(window.__connectCount||0)+1;if(window.__holdConnect){window.__holdConnect=false;await new Promise(resolve=>{window.__releaseConnect=resolve;window.__heldConnect=true})}}
                   return response;
                 };''')
-                page.goto(base);page.wait_for_function("()=>document.getElementById('ocrConnection').textContent==='Connected to ScoreSight'")
-                assert page.locator('#ocrConnect').inner_text()=='Connected — Check connection'
-                page.wait_for_function("()=>getComputedStyle(document.getElementById('ocrConnect')).backgroundColor==='rgb(23, 101, 83)'")
+                page.goto(base);page.wait_for_function("()=>document.getElementById('ocrConnection').textContent==='Connected'")
+                assert page.locator('#ocrConnect').inner_text()=='Connect'
+                assert page.locator('#ocrConnect').is_disabled() and page.locator('#ocrDisconnect').is_enabled()
+                assert page.locator('#ocrConnection').get_attribute('data-connection')=='connected'
                 page.wait_for_timeout(600)
                 assert page.evaluate('scrollY')==0,'polling scrolled page on open'
                 order(page)
                 page.locator('#homeName').focus();page.wait_for_timeout(600)
                 assert page.locator('#homeName').evaluate('e=>e===document.activeElement') and page.evaluate('scrollY')<1080
+                page.locator('#ocrDisconnect').click()
+                page.wait_for_function("()=>document.getElementById('ocrConnection').textContent==='Not connected'")
+                assert page.locator('#ocrDisconnect').is_disabled() and page.locator('#ocrConnect').is_enabled()
                 page.locator('#ocrAddress').fill('http://127.0.0.1:')
                 navigate(page,'editor');navigate(page,'control');page.wait_for_timeout(600)
                 assert page.locator('#ocrAddress').input_value()=='http://127.0.0.1:'
                 assert page.locator('#ocr-main-follow').is_disabled()
                 page.locator('#ocrAddress').fill(address);page.evaluate('window.__holdConnect=true');fixture['delay']=.6;page.locator('#ocrConnect').click()
                 page.wait_for_function('()=>window.__heldConnect')
-                assert page.locator('#ocrConnect').inner_text()=='Connecting…' and page.locator('#ocrConnect').is_disabled()
+                assert page.locator('#ocrConnection').inner_text()=='Connecting…' and page.locator('#ocrConnect').is_disabled()
                 assert page.locator('#ocrConnect').get_attribute('aria-busy')=='true'
                 page.evaluate("document.getElementById('ocrConnect').click();document.getElementById('ocrConnect').click()")
                 assert page.evaluate('window.__connectCount')==1
@@ -60,7 +65,7 @@ def verify_ocr_ui(base,request,wait_for,fixture,root,address):
                 page.wait_for_function("()=>!document.getElementById('ocr-main-follow').disabled")
                 page.locator('#ocr-main-follow').focus();page.keyboard.press('Enter')
                 page.wait_for_function("()=>document.getElementById('ocr-main-mode').textContent==='FOLLOWING OCR'")
-                assert page.locator('#ocrConnect').is_disabled() and 'Take manual control of every OCR field' in page.locator('#ocrConnectHelp').inner_text()
+                assert page.locator('#ocrConnect').is_disabled() and page.locator('#ocrDisconnect').is_enabled()
                 page.locator('#ocr-home_score-follow').click()
                 page.wait_for_function("()=>document.getElementById('homeScore').disabled")
                 assert page.locator('[data-clock-action="both:start"]').is_disabled()
@@ -77,13 +82,13 @@ def verify_ocr_ui(base,request,wait_for,fixture,root,address):
                 assert page.locator('.ocr-target').first.evaluate('e=>getComputedStyle(e).backgroundColor')=='rgb(16, 29, 45)'
                 # Connection health changes must not focus or scroll to OCR.
                 page.locator('#homeName').focus();page.evaluate('scrollTo(0,0)');fixture['status']=503
-                page.wait_for_function("()=>document.getElementById('ocrConnection').textContent==='Connection lost / unavailable'")
-                assert page.locator('#ocrConnect').inner_text()=='Connection lost — Reconnect'
-                page.wait_for_function("()=>getComputedStyle(document.getElementById('ocrConnect')).backgroundColor==='rgb(143, 38, 50)'")
+                page.wait_for_function("()=>document.getElementById('ocrConnection').textContent==='Connection lost'")
+                assert page.locator('#ocrConnect').is_enabled() and page.locator('#ocrDisconnect').is_enabled()
+                page.wait_for_function("()=>getComputedStyle(document.getElementById('ocrConnection')).backgroundColor==='rgb(72, 32, 41)'")
                 assert page.evaluate('scrollY')==0 and page.locator('#homeName').evaluate('e=>e===document.activeElement')
                 order(page);fixture['status']=200
-                page.wait_for_function("()=>document.getElementById('ocrConnection').textContent==='Connected to ScoreSight'")
-                assert page.locator('#ocrConnect').inner_text()=='Connected — Check connection' and page.locator('#ocrConnect').is_disabled()
+                page.wait_for_function("()=>document.getElementById('ocrConnection').textContent==='Connected'")
+                assert page.locator('#ocrConnect').inner_text()=='Connect' and page.locator('#ocrConnect').is_disabled()
                 assert page.evaluate('scrollY')==0
                 page.screenshot(path=str(root/f'.test/ocr14-live-{width}.png'),full_page=True)
                 page.locator('.ocr-card').screenshot(path=str(root/f'.test/ocr14-panel-{width}.png'))
@@ -101,12 +106,30 @@ def verify_ocr_ui(base,request,wait_for,fixture,root,address):
                 page.locator('#ocr-home_score-manual').click()
                 page.wait_for_function("()=>!document.getElementById('homeScore').disabled")
                 assert page.evaluate('new Set([...document.querySelectorAll("[id]")].map(e=>e.id)).size===document.querySelectorAll("[id]").length')
+                for target in ('main','shot','home_score'):request('/api/ocr/follow',{'target':target})
+                page.wait_for_function("()=>document.getElementById('ocr-shot-mode').textContent==='FOLLOWING OCR'")
+                before=request('/api/state');page.evaluate('window.__holdDisconnect=true')
+                page.locator('#ocrDisconnect').click();page.wait_for_function('()=>window.__heldDisconnect')
+                assert page.locator('#ocrConnect').is_disabled() and page.locator('#ocrDisconnect').is_disabled()
+                count=page.evaluate('window.__disconnectCount')
+                page.evaluate("document.getElementById('ocrDisconnect').click();document.getElementById('ocrConnect').click()")
+                assert page.evaluate('window.__disconnectCount')==count
+                page.evaluate('window.__releaseDisconnect()')
+                page.wait_for_function("()=>document.getElementById('ocrConnection').textContent==='Not connected'")
+                assert page.locator('#mainDisplay').inner_text()==before['main']['display']
+                assert page.locator('#shotDisplay').inner_text()==before['shot']['display']
+                assert page.locator('#mainState').inner_text()==page.locator('#shotState').inner_text()=='PAUSED'
+                assert page.locator('#ocrDisconnect').is_disabled() and page.locator('#ocrConnect').is_enabled()
+                page.locator('#ocrConnect').click()
+                page.wait_for_function("()=>document.getElementById('ocrConnection').textContent==='Connected'")
+                for target in TARGETS:assert page.locator(f'#ocr-{target}-mode').inner_text()=='MANUAL'
+                assert page.locator('#mainState').inner_text()==page.locator('#shotState').inner_text()=='PAUSED'
                 assert not errors,errors
                 print('OCR bottom order, independent cards, dialogs, drafts, touch/keyboard, polling focus/scroll:',width,'PASS',flush=True)
                 context.close()
             for zoom in (2,4):
                 context=browser.new_context(viewport={'width':1920//zoom,'height':1080//zoom},device_scale_factor=zoom)
-                page=context.new_page();page.goto(base);page.wait_for_function("()=>document.getElementById('ocrConnection').textContent==='Connected to ScoreSight'")
+                page=context.new_page();page.goto(base);page.wait_for_function("()=>document.getElementById('ocrConnection').textContent==='Connected'")
                 order(page);no_overflow(page)
                 page.locator('#ocr-main-fieldChoice').click();no_overflow(page)
                 page.screenshot(path=str(root/f'.test/ocr11-zoom-{zoom*100}.png'));page.keyboard.press('Escape')
@@ -122,14 +145,14 @@ def verify_disconnected_ui(base):
                 page=browser.new_page(viewport={'width':width,'height':1080});page.goto(base)
                 page.wait_for_function("()=>document.getElementById('connectionLabel').textContent==='Connected'")
                 assert page.locator('#ocrConnection').text_content()=='Not connected'
-                assert page.locator('#ocrConnect').inner_text()=='Not connected — Connect' and page.locator('#ocrConnect').is_enabled()
-                page.wait_for_function("()=>getComputedStyle(document.getElementById('ocrConnect')).backgroundColor==='rgb(143, 38, 50)'")
+                assert page.locator('#ocrConnect').inner_text()=='Connect' and page.locator('#ocrConnect').is_enabled()
+                page.wait_for_function("()=>getComputedStyle(document.getElementById('ocrConnection')).backgroundColor==='rgb(72, 32, 41)'")
                 assert page.evaluate("()=>document.getElementById('tab-control').lastElementChild.matches('.ocr-card')&&scrollY===0")
                 no_overflow(page);page.close()
             print('Disconnected restart: OCR remains last at all five widths; no opening scroll PASS',flush=True)
             page=browser.new_page();page.goto(base);page.wait_for_function("()=>document.getElementById('connectionLabel').textContent==='Connected'")
             page.locator('#ocrAddress').fill('http://127.0.0.1:1');page.locator('#ocrConnect').click()
-            page.wait_for_function("()=>document.getElementById('ocrConnect').textContent==='Connection failed — Retry'")
+            page.wait_for_function("()=>document.getElementById('ocrConnection').textContent==='Connection failed'")
             assert page.locator('#ocrConnect').is_enabled() and page.locator('#ocrWarning').inner_text()
-            print('Initial connection failure: visible red Retry action and warning PASS',flush=True)
+            print('Initial connection failure: visible red status and enabled Connect and warning PASS',flush=True)
         finally:browser.close()
