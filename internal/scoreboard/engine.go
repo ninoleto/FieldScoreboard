@@ -31,6 +31,7 @@ type Snapshot struct {
 	HomeFouls       int         `json:"home_fouls"`
 	AwayFouls       int         `json:"away_fouls"`
 	Period          int         `json:"period"`
+	PeriodFormat    string      `json:"period_format"`
 	PeriodOvertime  bool        `json:"period_overtime"`
 	PeriodLabel     string      `json:"period_label"`
 	ShotAutoHide    bool        `json:"shot_auto_hide"`
@@ -59,6 +60,9 @@ func NewApp(cfg Config, path string) (*App, error) {
 	if err := ValidateConfig(cfg); err != nil {
 		return nil, err
 	}
+	if cfg.PeriodFormat == "" {
+		cfg.PeriodFormat = "number"
+	}
 	return &App{cfg: cfg, path: path, activeListen: cfg.Listen, main: newClock(cfg.MainDuration, cfg.MainDirection), shot: newClock(cfg.ShotDuration, "down"), ocr: newOCRRuntime(cfg.OCR), ocrWake: make(chan struct{}, 1)}, nil
 }
 func cloneLayout(l Layout) Layout {
@@ -86,7 +90,7 @@ func (a *App) State() Snapshot {
 	cs := func(c *Clock, format string) ClockState {
 		return ClockState{Display: clockDisplay(c.value(now), format, c.Direction), State: c.State, Direction: c.Direction, DurationSeconds: int(c.Duration / time.Second), RemainingSeconds: c.value(now).Seconds()}
 	}
-	periodLabel := fmt.Sprint(a.cfg.Period)
+	periodLabel := periodDisplay(a.cfg.Period, a.cfg.PeriodFormat)
 	if a.cfg.PeriodOvertime {
 		periodLabel = "OT"
 	}
@@ -110,7 +114,7 @@ func (a *App) State() Snapshot {
 	if a.ocrFollowingLocked("shot") {
 		shot.State = "ocr"
 	}
-	return Snapshot{Version: Version, HomeName: a.cfg.HomeName, AwayName: a.cfg.AwayName, HomeScore: a.cfg.HomeScore, AwayScore: a.cfg.AwayScore, HomeFouls: a.cfg.HomeFouls, AwayFouls: a.cfg.AwayFouls, Period: a.cfg.Period, PeriodLabel: periodLabel, PeriodOvertime: a.cfg.PeriodOvertime, ShotAutoHide: a.cfg.ShotAutoHide, ShotVisible: shotVisible, Main: main, Shot: shot, Layout: cloneLayout(a.cfg.Layout), Listen: a.cfg.Listen, ActiveListen: a.activeListen, RestartRequired: a.cfg.Listen != a.activeListen, OCR: a.ocrSnapshotLocked(now)}
+	return Snapshot{Version: Version, HomeName: a.cfg.HomeName, AwayName: a.cfg.AwayName, HomeScore: a.cfg.HomeScore, AwayScore: a.cfg.AwayScore, HomeFouls: a.cfg.HomeFouls, AwayFouls: a.cfg.AwayFouls, Period: a.cfg.Period, PeriodFormat: a.cfg.PeriodFormat, PeriodLabel: periodLabel, PeriodOvertime: a.cfg.PeriodOvertime, ShotAutoHide: a.cfg.ShotAutoHide, ShotVisible: shotVisible, Main: main, Shot: shot, Layout: cloneLayout(a.cfg.Layout), Listen: a.cfg.Listen, ActiveListen: a.activeListen, RestartRequired: a.cfg.Listen != a.activeListen, OCR: a.ocrSnapshotLocked(now)}
 }
 
 // RotateToken atomically persists a fresh API token and immediately invalidates
@@ -168,6 +172,12 @@ func (a *App) UpdateGame(field string, value json.RawMessage) error {
 			return err
 		}
 		switch field {
+		case "period_format":
+			var format string
+			if err := json.Unmarshal(value, &format); err != nil || !validPeriodFormat(format) {
+				return errors.New("period format must be number, ordinal or quarter")
+			}
+			c.PeriodFormat = format
 		case "home_name", "away_name":
 			var n string
 			if err := json.Unmarshal(value, &n); err != nil {

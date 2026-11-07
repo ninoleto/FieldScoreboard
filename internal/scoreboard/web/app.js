@@ -30,6 +30,10 @@
   ['homeName','awayName'].forEach(id=>{const el=$(id);if(document.activeElement!==el)el.value=s[id==='homeName'?'home_name':'away_name']});
   $('periodValue').textContent=s.period_label||String(s.period);
   $('periodOT').checked=!!s.period_overtime;
+  for(const button of document.querySelectorAll('[data-period-format]')){
+   const active=button.dataset.periodFormat===(s.period_format||'number');
+   button.setAttribute('aria-checked',String(active));button.tabIndex=active?0:-1;
+  }
   for(const b of document.querySelectorAll('[data-adjust^="period:"]'))b.disabled=!!s.period_overtime;
   for(const [field,id] of [['home_score','homeScore'],['away_score','awayScore'],['home_fouls','homeFouls'],['away_fouls','awayFouls']])$(id).textContent=s[field];
   $('mainDisplay').textContent=s.main.display;$('mainState').textContent=s.main.state.toUpperCase();$('shotDisplay').textContent=s.shot.display;$('shotState').textContent=s.shot.state.toUpperCase();
@@ -136,6 +140,16 @@
   input.dispatchEvent(new Event('change',{bubbles:true}));
  }));
  $('periodOT').addEventListener('change',()=>action('/api/game',{field:'period_overtime',value:$('periodOT').checked}));
+ const periodFormats=[...document.querySelectorAll('[data-period-format]')];
+ for(const button of periodFormats){
+  button.addEventListener('click',()=>action('/api/game',{field:'period_format',value:button.dataset.periodFormat}));
+  button.addEventListener('keydown',event=>{
+   if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key))return;
+   event.preventDefault();const index=periodFormats.indexOf(button),delta=['ArrowLeft','ArrowUp'].includes(event.key)?-1:1;
+   const next=periodFormats[event.key==='Home'?0:event.key==='End'?periodFormats.length-1:(index+delta+periodFormats.length)%periodFormats.length];
+   next.focus({preventScroll:true});next.click();
+  });
+ }
  $('shotAutoHide').addEventListener('change',()=>action('/api/game',{field:'shot_auto_hide',value:$('shotAutoHide').checked}));
  [['homeName','home_name'],['awayName','away_name']].forEach(([id,key])=>{$(id).addEventListener('change',()=>{let v=$(id).value.trim();if(v)action('/api/game',{field:key,value:v});else message('Team name cannot be empty')})});
  $('resetMatch').addEventListener('click',()=>{if(confirm('Reset BOTH scores, fouls, and period to initial values? Clocks will not be changed.'))action('/api/reset-game')});

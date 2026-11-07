@@ -17,9 +17,11 @@ func TestOCRFoulsPeriodOwnershipOTAndPersistence(t *testing.T) {
 				t.Fatal(target, v, err)
 			}
 		}
-		invalid := []string{"-1", "31", "1.0", " 1", "1 ", "OT", "00:01", "999", ""}
+		invalid := []string{"-1", "31", "1.0", "OT", "00:01", "999", ""}
 		if target == "period" {
 			invalid = append(invalid, "0", "21")
+		} else {
+			invalid = append(invalid, " 1", "1 ")
 		}
 		for _, v := range invalid {
 			if _, err := parseOCRValue(target, v); err == nil {

@@ -230,6 +230,14 @@ button.touch-select-trigger{display:flex;width:100%;justify-content:space-betwee
 .period-row{display:flex;flex-wrap:wrap;gap:12px;border:0;background:none;padding:0;margin-bottom:18px}
 .period-row>.number-group{flex:1 1 300px}
 .period-ot-control{font-size:16px;min-height:48px}
+.period-format{flex:1 1 100%;min-width:0;margin:0;padding:0;border:0}
+.period-format legend{font-size:18px;font-weight:700;color:#dfedfa;padding:0;margin-bottom:10px}
+.period-format-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.period-format-options button{min-height:72px;min-width:0;font-size:20px;padding:12px 8px;border:2px solid #617b96;line-height:1.3}
+.period-format-options button span{display:block;font-size:18px;margin-top:4px}
+.period-format-options button[aria-checked="true"]{background:#176553;border-color:#aaffec;color:#fff;box-shadow:0 0 0 2px #54ddc444}
+.period-format-options button[aria-checked="true"]::before{content:'✓ ';color:#b5ffdf}
+@media(max-width:600px){.period-format-options{grid-template-columns:1fr}}
 .team-group{padding:12px 8px}
 .team-group>.field-label{font-size:14px}
 .hint-exact{font-size:13px}

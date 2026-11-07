@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const Version = "0.1.0-test.12"
+const Version = "0.1.0-test.13"
 const CanvasW = 1920
 const CanvasH = 1080
 
@@ -60,6 +60,7 @@ type Config struct {
 	HomeFouls      int          `json:"home_fouls"`
 	AwayFouls      int          `json:"away_fouls"`
 	Period         int          `json:"period"`
+	PeriodFormat   string       `json:"period_format,omitempty"`
 	PeriodOvertime bool         `json:"period_overtime"`
 	ShotAutoHide   bool         `json:"shot_auto_hide"`
 	MainDuration   int          `json:"main_duration"`
@@ -285,6 +286,10 @@ func ValidateConfig(c Config) error {
 	}
 	if c.Period < 1 || c.Period > 20 {
 		return errors.New("period out of range")
+	}
+	// Missing settings in earlier configurations retain numeric presentation.
+	if c.PeriodFormat != "" && !validPeriodFormat(c.PeriodFormat) {
+		return errors.New("period format must be number, ordinal or quarter")
 	}
 	if c.MainDuration < 1 || c.MainDuration > 7*86400 || c.ShotDuration < 1 || c.ShotDuration > 3600 {
 		return errors.New("clock duration out of range")

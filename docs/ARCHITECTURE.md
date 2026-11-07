@@ -12,6 +12,7 @@ Field Scoreboard is one Go process with embedded browser assets. It owns the liv
 | `internal/scoreboard/engine.go` | Mutex-protected game state, clock actions, snapshots and layout profiles. |
 | `internal/scoreboard/ocr.go` / `ocr_test.go` / `ocr_mappings_test.go` / `ocr_seven_test.go` | Bounded ScoreSight polling, payload validation, runtime ownership/freshness status and regression tests. |
 | `internal/scoreboard/web/ocr.js` | Touch OCR connection, actual field options, drafts, follow/takeover and operator warnings. |
+| `internal/scoreboard/period.go` / `period_test.go` | Strict period OCR normalization, numeric/ordinal/quarter labels and regression tests. |
 | `internal/scoreboard/background.go` | Image dimension parsing, orientation, transform defaults and validation. |
 | `internal/scoreboard/network.go` | Private IPv4 interface discovery and address validation. |
 | `internal/scoreboard/server.go` | Embedded files, HTTP/SSE, authentication, uploads and sanitized overlay feed. |
@@ -27,11 +28,13 @@ Field Scoreboard is one Go process with embedded browser assets. It owns the liv
 
 `App` protects configuration and two runtime `Clock` values with a mutex. Timing uses elapsed monotonic time, not browser animation ticks. Snapshots settle clocks and format values. The server's background loop settles expired clocks even without an overlay client.
 
-Persisted data includes game values, durations/direction, OT, auto-hide and layout. Runtime elapsed/paused progress is not persisted: constructing a new App creates Ready clocks. Match and shot actions remain independent; combined Start/Pause is explicit. Shot Reset/Set resumes only when main is running. Shot visibility and the OT label are computed without changing clock timing or discarding the numeric period.
+Persisted data includes game values, durations/direction, OT, period display format, auto-hide and layout. Runtime elapsed/paused progress is not persisted: constructing a new App creates Ready clocks. Match and shot actions remain independent; combined Start/Pause is explicit. Shot Reset/Set resumes only when main is running. Shot visibility and the OT label are computed without changing clock timing or discarding the numeric period.
 
 Explicit OCR ownership is per target: main, shot, home_score, away_score, home_fouls, away_fouls and period. Accepted clock readings write the held clock base under the same mutex; no internal countdown runs, and the snapshot identifies either owned clock as `ocr`. Scores, fouls and numeric period use existing game persistence, writing only when their numeric value changes. Manual/API controls guard the affected owner, combined actions reject before any mutation if either clock follows, and game reset rejects if any score/foul/period follows. Shot reset resumes only from the internal main running state, never an inferred OCR state. Auto-hide compares both effective values.
 
-Numeric period updates preserve the separate `PeriodOvertime` flag; OT remains an explicit manual display toggle.
+Numeric period updates preserve the separate `PeriodOvertime` flag; OT remains an explicit manual display toggle. Optional top-level config `period_format` is number/ordinal/quarter. Missing legacy settings normalize to number in NewApp; invalid formats are rejected. It is live presentation state, outside Layout and presets, and survives game reset. `/api/game` updates it independently of numeric period ownership. State formats `period_label` once in Go, with OT taking precedence; the shared renderer and sanitized overlay consume that label, including on transformed elements.
+
+Period OCR alone trims surrounding whitespace and ignores case, then matches an entire numeric, correctly suffixed ordinal or Q-prefixed value in 1–20. No substring digit extraction or clamping occurs. The runtime preserves raw Recognized text and exposes canonical numeric LastAccepted for period. Display changes do not invalidate OCR ownership or mutate period values.
 
 Takeover retains the displayed value (clocks paused). A connection generation and per-target request revisions prevent late responses crossing ownership/mapping changes, without suppressing other valid target updates. Malformed or duplicate individual fields cannot poison the whole array. One context-bound worker owns HTTP polling; timeouts never hold the state mutex. Optional config `ocr` stores address/mappings and a legacy main `field` alias. Test.9 settings migrate without automatic follow; explicit empty mappings disable suggestions. Restart is manual/Ready/disconnected. Runtime statuses stay in the authenticated operator snapshot; OBS receives only effective game/clock values. See [source contract and freshness limitations](OCR_PLAN.md).
 
@@ -69,9 +72,9 @@ The common remote API gate uses constant-time bearer comparison. Client IP comes
 | Method/path | Request / behavior |
 |---|---|
 | `GET /api/state` | Full snapshot; never contains the token. |
-| `POST /api/game` | `{"field":"period","value":2}`; also names, scores, fouls, OT and auto-hide. |
+| `POST /api/game` | `{"field":"period","value":2}`; also names, scores, fouls, OT, auto-hide and `{"field":"period_format","value":"quarter"}` (number/ordinal/quarter). |
 | `POST /api/adjust` | `{"field":"home_score","delta":1}`. |
-| `POST /api/reset-game` | Clear scores/fouls/OT and set period to 1; leave clocks unchanged. |
+| `POST /api/reset-game` | Clear scores/fouls/OT and set period to 1; leave clocks and period format unchanged. |
 | `POST /api/clock/{main,shot,both}/{start,pause,stop,reset}` | Transport actions; no body. |
 | `POST /api/clock/{main,shot}/set` | `{"seconds":24,"direction":"down"}`. |
 | `POST /api/clock/{main,shot}/adjust` | `{"seconds":-1}`. |

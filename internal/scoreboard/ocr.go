@@ -153,7 +153,7 @@ func parseOCRValue(target, text string) (int, error) {
 	case "home_fouls", "away_fouls":
 		limit, digits = 30, 2
 	case "period":
-		minimum, limit, digits = 1, 20, 2
+		return parseOCRPeriod(text)
 	case "home_score", "away_score":
 	default:
 		return 0, errors.New("unknown OCR target")
@@ -497,6 +497,9 @@ func (a *App) acceptOCR(ticket ocrTicket, results []scoreSightResult, fetchErr e
 			t.changedAt = now
 		}
 		t.value, t.valid, t.LastAccepted, t.Reading = value, true, r.Text, "accepted"
+		if target == "period" {
+			t.LastAccepted = strconv.Itoa(value)
+		}
 	}
 }
 func fetchScoreSight(ctx context.Context, client *http.Client, address string) ([]scoreSightResult, error) {

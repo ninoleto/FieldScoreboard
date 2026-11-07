@@ -44,7 +44,9 @@ class Source(BaseHTTPRequestHandler):
         # Discovered fields stay manual until individually followed.
         payload += [{'name':'Home Score','text':state['home'],'state':'Success'},{'name':'Shot Clock','text':state['shot'],'state':'Success'}]
         payload.append({'name':'Away Score','text':state['away'],'state':'Success'})
-        for key,name in [('home_fouls','Home Fouls'),('away_fouls','Away Fouls'),('period','Period')]:payload.append({'name':name,'text':state[key],'state':'Success'})
+        for key,name in [('home_fouls','Home Fouls'),('away_fouls','Away Fouls'),('period','Period')]:
+            if key=='period' and state.get('period_missing'):continue
+            payload.append({'name':name,'text':state[key],'state':state.get('period_state','Success') if key=='period' else 'Success'})
         if state['delay']:entered.set();time.sleep(state['delay'])
         if state['extra']:payload.append({'name':'Alternate','text':'03:21','state':'Success'})
         self.send_response(state['status']);self.send_header('Content-Type','application/json');self.end_headers()
@@ -124,9 +126,13 @@ with tempfile.TemporaryDirectory() as folder:
                 verify_mappings(request,wait_for,fixture,entered)
                 from ocr_seven_checks import verify_seven
                 verify_seven(request,wait_for,fixture,entered)
+                from period_checks import verify_period_formats
+                verify_period_formats(request,wait_for,fixture)
             if args.ui:
                 from ui_ocr_checks import verify_ocr_ui
                 verify_ocr_ui(base,request,wait_for,fixture,root,address)
+                from ui_period_checks import verify_period_ui
+                verify_period_ui(base,request,wait_for,fixture,root)
             saved=request('/api/state')['ocr']['targets']
             game=request('/api/state')
             proc.terminate();proc.wait(timeout=5);proc=start()
@@ -136,7 +142,7 @@ with tempfile.TemporaryDirectory() as folder:
             for target,view in restarted['ocr']['targets'].items():
                 assert not view['following'] and view['field']==saved[target]['field']
             assert restarted['shot']['state']=='ready'
-            for key in ('home_score','away_score','home_fouls','away_fouls','period','period_overtime'):assert restarted[key]==game[key],('restart lost value',key)
+            for key in ('home_score','away_score','home_fouls','away_fouls','period','period_overtime','period_format','period_label'):assert restarted[key]==game[key],('restart lost value',key)
             print('OCR restart: settings retained, manual Ready, no automatic connection/follow PASS')
             if args.ui:
                 from ui_ocr_checks import verify_disconnected_ui

@@ -2,9 +2,9 @@
 
 **A manual sports scoreboard and graphics editor for OBS Studio.** Control scores, fouls, periods and two independent clocks from a large, touch-friendly web panel. Arrange your artwork and scoreboard fields in one transparent 1920×1080 Browser Source, then nest it over your camera scene.
 
-Free and open source under the [MIT licence](LICENSE). Runs on **Windows x64 and Linux x64**, without a cloud account or extra application runtime. **This branch is v0.1.0-test.12, a local-only ScoreSight development build.** The published first preview remains test.8; the download links below are for that unchanged release. Neither build is a fully field-validated stable release.
+Free and open source under the [MIT licence](LICENSE). Runs on **Windows x64 and Linux x64**, without a cloud account or extra application runtime. **This branch is v0.1.0-test.13, a local-only ScoreSight development build.** The published first preview remains test.8; the download links below are for that unchanged release. Neither build is a fully field-validated stable release.
 
-The optional **ScoreSight OCR** section is at the **bottom of Live control**, below every manual panel. Connect to discover fields, then follow **match clock, shot clock, home/away scores, home/away fouls and numeric period independently**. Each card shows its source, recognised/accepted value and manual takeover. Missing fields stay unconfigured; bad readings keep the displayed value. Takeover retains the value and pauses clocks. See [setup and limitations](docs/OCR_PLAN.md), [test.12 notes](docs/RELEASE_NOTES-v0.1.0-test.12.md) and [verification](docs/VERIFICATION-v0.1.0-test.12.md). Use the separate local test.12 packages with an isolated configuration; the public downloads below remain test.8.
+The optional **ScoreSight OCR** section is at the **bottom of Live control**, below every manual panel. Connect to discover fields, then follow **match clock, shot clock, home/away scores, home/away fouls and numeric period independently**. Period OCR accepts 3, 3rd or Q3 independently of the chosen display format. Each card shows its source, recognised/accepted value and manual takeover. Missing fields stay unconfigured; bad readings keep the displayed value. Takeover retains the value and pauses clocks. See [setup and limitations](docs/OCR_PLAN.md), [test.13 notes](docs/RELEASE_NOTES-v0.1.0-test.13.md) and [verification](docs/VERIFICATION-v0.1.0-test.13.md). Use the separate local test.13 packages with an isolated configuration; the public downloads below remain test.8.
 
 ## Download and start
 
@@ -37,7 +37,7 @@ If **Browser Source is missing on Linux**, check which OBS installation you laun
 
 ## What you can control
 
-- Home/away names, scores and fouls; numeric or dot foul displays; periods and an **OT** label that preserves the selected period number. Changes apply immediately.
+- Home/away names, scores and fouls; numeric or dot foul displays; periods displayed as **Number (3)**, **Ordinal (3rd)** or **Quarter (Q3)**, and an **OT** override that preserves the period number and chosen format. Changes apply immediately.
 - Independent match and shot clocks, count-up/down match timing, duration entry and time corrections. **Start both / Pause both** keeps their current times. Resetting or setting the shot clock (including 14/24/30 presets) starts it only if the match clock is running, without changing the match clock.
 - Optional **shot auto-hide** hides its output when shot time is at least the remaining match time, or the match has expired. Timing continues internally. After application restart, saved game values remain but both clocks return to Ready.
 - Large choice dialogs and consistent numeric ± controls at every screen size. Duration drafts wait for **Set** and survive background updates; narrow screens use **Menu** navigation.
@@ -55,9 +55,9 @@ The built-in **Companion HTTP Builder** generates requests for Bitfocus Companio
 
 ## Preview status and development
 
-**User-reported manual smoke test, 2026-11-06, for test.8:** the Linux application and its overlay work with OBS Flatpak. This does not validate the OCR build or establish physical touchscreen, Windows tray, LAN, Companion or live-event validation. See [test.8 verification](docs/VERIFICATION-v0.1.0-test.8.md) and the separate [test.12 results](docs/VERIFICATION-v0.1.0-test.12.md).
+**User-reported manual smoke test, 2026-11-06, for test.8:** the Linux application and its overlay work with OBS Flatpak. This does not validate the OCR build or establish physical touchscreen, Windows tray, LAN, Companion or live-event validation. See [test.8 verification](docs/VERIFICATION-v0.1.0-test.8.md) and the separate [test.13 results](docs/VERIFICATION-v0.1.0-test.13.md).
 
-**User-reported home smoke test, 2026-11-06:** match-clock OCR works in the operator’s home setup with test.9. This is not venue validation. Local test.12 includes seven independent OCR mappings and optional element Free transform. Normal selection/dragging shows only a thin outline; **Free transform** reveals handles and **Done transforming** hides them without saving or discarding edits. Automatic sport rules, NDI and direct OBS control are **not included**. See [current scope and future work](docs/OCR_PLAN.md).
+**User-reported home smoke test, 2026-11-06:** match-clock OCR works in the operator’s home setup with test.9. This is not venue validation. Local test.13 includes seven independent OCR mappings and optional element Free transform. Normal selection/dragging shows only a thin outline; **Free transform** reveals handles and **Done transforming** hides them without saving or discarding edits. Automatic sport rules, NDI and direct OBS control are **not included**. See [current scope and future work](docs/OCR_PLAN.md).
 
 After user acceptance, the intended public version is **v0.1.0**, a normal release. Test.11 remains local and is not published.
 

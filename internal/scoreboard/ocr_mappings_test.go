@@ -38,7 +38,10 @@ func TestOCRIndependentStrictValidation(t *testing.T) {
 		}
 	}
 	for _, target := range ocrTargets {
-		bad := []string{"", "-1", "+1", " 1", "1 ", "1.0", "1\n", "O1", "١", "1:2", "00:60", "00:00:01", "10080:01"}
+		bad := []string{"", "-1", "+1", "1.0", "O1", "١", "1:2", "00:60", "00:00:01", "10080:01"}
+		if target != "period" {
+			bad = append(bad, " 1", "1 ", "1\n")
+		}
 		if target == "main" {
 			bad = append(bad, "24")
 		} else if target == "shot" {
