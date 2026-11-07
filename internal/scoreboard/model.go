@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const Version = "0.1.0-test.16"
+const Version = "0.1.0-test.17"
 const CanvasW = 1920
 const CanvasH = 1080
 

@@ -1,6 +1,6 @@
 # ScoreSight connection: current scope and future work
 
-## Local test.16 setup
+## Local test.17 setup
 
 Test.15 retains seven independent targets: **match clock, shot clock, home/away scores, home/away fouls and numeric period**, with older saved mappings preserved. It is a local development build; the published test.8 release remains unchanged. The entire ScoreSight section is at the **bottom of Live control**, after scores, fouls, period, Both clocks and both individual clock panels and Scoreboard display, before the footer. Polling does not scroll or move focus there.
 
@@ -64,6 +64,6 @@ Connection generations and per-target revisions discard late responses only for 
 
 ## Evidence and future work
 
-See [test.16 preset/font verification](VERIFICATION-v0.1.0-test.16.md), [test.15 clock verification](VERIFICATION-v0.1.0-test.15.md), [test.14 interface verification](VERIFICATION-v0.1.0-test.14.md), [test.13 period verification](VERIFICATION-v0.1.0-test.13.md), historical [test.12 regression checks](VERIFICATION-v0.1.0-test.12.md), [test.11 verification](VERIFICATION-v0.1.0-test.11.md) and historical [test.9 verification](VERIFICATION-v0.1.0-test.9.md). On 2026-11-06 the operator reported match-clock OCR working in the home setup with test.9. **This is not venue validation.** Automated source pauses/resets/failures are simulations; Field Timer and the live source were not controlled by those tests.
+See [test.17 shot/name verification](VERIFICATION-v0.1.0-test.17.md), [test.16 preset/font verification](VERIFICATION-v0.1.0-test.16.md), [test.15 clock verification](VERIFICATION-v0.1.0-test.15.md), [test.14 interface verification](VERIFICATION-v0.1.0-test.14.md), [test.13 period verification](VERIFICATION-v0.1.0-test.13.md), historical [test.12 regression checks](VERIFICATION-v0.1.0-test.12.md), [test.11 verification](VERIFICATION-v0.1.0-test.11.md) and historical [test.9 verification](VERIFICATION-v0.1.0-test.9.md). On 2026-11-06 the operator reported match-clock OCR working in the home setup with test.9. **This is not venue validation.** Automated source pauses/resets/failures are simulations; Field Timer and the live source were not controlled by those tests.
 
 Future work: verified detection freshness if supplied upstream, confidence/stability policy, multiple sources and venue evaluation. Automatic sport rules and guaranteed OCR accuracy are not included.

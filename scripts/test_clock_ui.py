@@ -6,6 +6,7 @@ import argparse,json,os,shutil,socket,subprocess,tempfile,threading,time
 from playwright.sync_api import sync_playwright
 from ui_touch_checks import choose,navigate,no_overflow
 from ui_duration_presets import verify_duration_presets
+from ui_shot_presets import verify_shot_presets
 
 parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('binary');args=parser.parse_args()
 root=Path(__file__).resolve().parents[1];binary=Path(args.binary).resolve();(root/'.test').mkdir(exist_ok=True)
@@ -65,10 +66,11 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
             if width>=1000:assert abs(sets[0]['y']-sets[1]['y'])<1,'desktop Set buttons misaligned'
             assert page.evaluate("()=>document.getElementById('tab-control').lastElementChild.matches('.ocr-card')")
             assert page.locator('.both-clocks').bounding_box()['y']<page.locator('.clock-grid').bounding_box()['y']
-            no_overflow(page);page.locator('.clock-grid').screenshot(path=str(root/f'.test/clocks15-{width}.png'))
+            no_overflow(page);page.locator('.clock-grid').screenshot(path=str(root/f'.test/clocks17-{width}.png'))
             if width==1920:
-                page.locator('.both-clocks').scroll_into_view_if_needed();page.screenshot(path=str(root/'.test/clocks15-maximized-1920x1080.png'))
+                page.locator('.both-clocks').scroll_into_view_if_needed();page.screenshot(path=str(root/'.test/clocks17-maximized-1920x1080.png'))
             verify_duration_presets(page,request,wait,root,width)
+            verify_shot_presets(page,request,wait,width)
             set_clock('main',600);set_clock('shot',60)
             # Actual click/tap/keyboard requests, every shortcut on both clocks.
             for state in ('paused','running') if width==1920 else ('paused',):
@@ -116,6 +118,14 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
             request('/api/ocr/follow',{'target':target});page.wait_for_function('(t)=>document.querySelector(`[data-clock-set="${t}"]`).disabled',arg=target)
             assert page.locator(f'[data-clock-adjust^="{target}:"]').evaluate_all('els=>els.length===4&&els.every(e=>e.disabled)')
             assert page.locator('[data-clock-action="both:start"]').is_disabled()
+            if target=='shot':
+                assert page.locator('[data-shot-preset]').evaluate_all('els=>els.length===3&&els.every(e=>e.disabled)')
+                from urllib.error import HTTPError
+                for seconds in (14,24,30):
+                    held=request('/api/state')['shot']
+                    try:request('/api/clock/shot/set',{'seconds':seconds,'direction':'down'});raise AssertionError('OCR-owned preset accepted')
+                    except HTTPError as error:assert error.code==400 and 'OCR' in error.read().decode()
+                    assert request('/api/state')['shot']==held
             if target=='main':
                 before=request('/api/state');page.locator('[data-main-duration="8"]').click();page.wait_for_timeout(550)
                 assert page.locator('#mainMinutes').input_value()=='8' and page.locator('#mainSeconds').input_value()=='0'
