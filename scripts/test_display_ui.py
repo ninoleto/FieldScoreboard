@@ -33,6 +33,11 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
         for width in (375,500,1000,1440,1920):
             page=browser.new_page(viewport={'width':width,'height':1080},has_touch=width==375);errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
             page.goto(base);page.wait_for_function("()=>document.getElementById('connected').classList.contains('ok')")
+            assert page.locator('#displayHeading').inner_text()=='Foul indicators'
+            assert page.locator('#scoreboardDisplay h4').count()==0
+            assert page.locator('#scoreboardDisplay > .note').first.inner_text()=='Changes appear immediately in the preview and OBS.'
+            assert page.locator('footer').inner_text()=='Field Scoreboard · Free & open source · Windows & Linux'
+            assert page.locator('.version').inner_text()=='v0.1.0'
             page.on('dialog',lambda d:d.accept())
             def rect(selector):return page.locator(selector).bounding_box()
             assert page.evaluate("()=>document.getElementById('tab-control').lastElementChild.matches('.ocr-card')")

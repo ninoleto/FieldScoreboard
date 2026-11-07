@@ -38,12 +38,17 @@ with tempfile.TemporaryDirectory() as temp:
             for _ in range(45):
                 if proc.poll() is not None:raise RuntimeError('server exited before responding')
                 try:
-                    assert req('/api/health')['version']=='0.1.0-test.17'
+                    assert req('/api/health')['version']=='0.1.0'
                     break
                 except (OSError,AssertionError):time.sleep(.1)
             else:raise RuntimeError('server startup timeout')
             data=req('/api/state')
             assert data['period']==1 and data['main']['display']=='20:00' and data['shot']['display']=='24'
+            assert data['home_name']=='HOME' and data['away_name']=='AWAY'
+            assert all(data[field]==0 for field in ('home_score','away_score','home_fouls','away_fouls'))
+            assert not data['period_overtime'] and data['period_format']=='number' and not data['layout']['background']
+            assert data['main']['state']==data['shot']['state']=='ready' and data['ocr']['connection']=='disconnected'
+            assert all(not target['following'] for target in data['ocr']['targets'].values())
             assert req('/api/adjust','POST',{'field':'home_score','delta':2})['home_score']==2
             assert req('/api/game','POST',{'field':'period','value':3})['period']==3
             assert req('/api/game','POST',{'field':'period_overtime','value':True})['period_label']=='OT'

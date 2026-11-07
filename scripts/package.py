@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create cross-platform preview archives and checksums. No source/config secrets."""
+"""Create cross-platform release archives and checksums. No source/config secrets."""
 from pathlib import Path
 from zipfile import ZipFile,ZIP_DEFLATED,ZipInfo
 import hashlib

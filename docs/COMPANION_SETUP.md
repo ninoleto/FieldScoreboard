@@ -33,7 +33,7 @@ The builder supports combined/individual clock Start, Pause, Stop, Reset, clock 
 
 - **ECONNREFUSED:** The Scoreboard has not been restarted after enabling LAN, the selected address is wrong, or the port is blocked. A listening wildcard `0.0.0.0` is never a remote destination.
 - **401 Unauthorized:** The Bearer header is missing or the token is wrong. Do not share tokens or screenshots containing them.
-- **No live button feedback:** GET state provides a snapshot. This test release does **not** implement a dedicated live Companion module. Use the web interface or OBS overlay for a continuously updating clock.
+- **No live button feedback:** GET state provides a snapshot. Field Scoreboard does **not** implement a dedicated live Companion module. Use the web interface or OBS overlay for a continuously updating clock.
 - **OBS Browser Source on another computer:** This is supported on a trusted private LAN. Enable LAN access, save, restart and use the **OBS on another computer (LAN)** link in the OBS setup section. A remote overlay is **read-only** and does not require a token. It will not work until Field Scoreboard is actively listening on the LAN (not merely saved).
 - **Rotate a compromised token:** On the Field Scoreboard host, open Output & API → OBS Browser Source → **Regenerate token**. Confirm the warning. Existing Companion button headers and remote sessions must be updated; their old tokens immediately stop working. No restart is needed. Token rotation is denied to remote clients.
 - **Clipboard blocked on tablet:** Browser clipboard APIs may be restricted on non-HTTPS LAN pages; a user-gesture copy fallback is provided. If the browser still rejects copying, select the displayed text manually.
