@@ -27,6 +27,7 @@ def verify_period_ui(base,request,wait_for,fixture,root):
                 def select(format):
                     button=page.locator(f'[data-period-format="{format}"]')
                     assert button.is_enabled() and button.bounding_box()['height']>=72
+                    if button.get_attribute('aria-checked')=='true':return
                     if touch:button.tap()
                     else:button.click()
                     page.wait_for_function('(f)=>document.querySelector(`[data-period-format="${f}"]`).getAttribute("aria-checked")==="true"',arg=format)

@@ -281,7 +281,8 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
                 assert page.locator('#touchChoiceDialog').is_hidden()
                 page.keyboard.press('Tab')
             page.once('dialog',lambda d:d.accept());page.locator('#discardLayout').click();sizing_state(page,'custom')
-            assert page.locator('select').count()==18
+            # Includes the optional OCR final-minute precision and style choices.
+            assert page.locator('select').count()==20
             assert page.evaluate('()=>{const ids=[...document.querySelectorAll("[id]")].map(e=>e.id);return new Set(ids).size===ids.length}')
             left=page.locator('.editor-card').bounding_box();right=page.locator('.inspector').bounding_box();profiles=page.locator('.layout-profiles').bounding_box()
             if width>=1440:

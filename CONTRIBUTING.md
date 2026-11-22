@@ -46,6 +46,7 @@ python scripts/test_display_ui.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_clock_ui.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_team_names_ui.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_font_ui.py bin/fieldscoreboard-windows-console.exe
+python scripts/test_floating_ui.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_http_transport.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_http.py bin/fieldscoreboard-windows-console.exe
 python scripts/test_ocr.py bin/fieldscoreboard-windows-console.exe --ui
@@ -62,6 +63,7 @@ python scripts/test_display_ui.py bin/fieldscoreboard-linux
 python scripts/test_clock_ui.py bin/fieldscoreboard-linux
 python scripts/test_team_names_ui.py bin/fieldscoreboard-linux
 python scripts/test_font_ui.py bin/fieldscoreboard-linux
+python scripts/test_floating_ui.py bin/fieldscoreboard-linux
 python scripts/test_http_transport.py bin/fieldscoreboard-linux
 python scripts/test_http.py bin/fieldscoreboard-linux
 python scripts/test_ocr.py bin/fieldscoreboard-linux --ui
@@ -95,6 +97,10 @@ The display suite checks all five responsive widths, editor toolbar modes and in
 The OCR suite also runs `period_checks.py` and, with `--ui`, `ui_period_checks.py`: strict number/ordinal/Q recognition, independent formats, OT, API compatibility, presets, restart, touch radio choices and transformed editor/preview/overlay geometry. The OCR suite simulates seven fields, simultaneous/mixed ownership, API guards, atomic combined rejection, delayed takeover, pauses/resets, per-field rejection, loss/recovery and restart. Browser checks cover bottom ordering, all seven selectors, drafts and polling focus/scroll; omit `--ui` for a native HTTP-only run. For a running real ScoreSight with a configured Time field, use `python scripts/test_ocr.py <native-binary> --live-address http://127.0.0.1:18099`. It starts an isolated scoreboard, reads the source without modifying it and records live observations separately. Do not combine `--ui` with the live option: browser field fixtures belong to the simulator.
 
 ## Contribution workflow
+
+Local v0.1.2-ocr-format.4 adds `ocr_usability_checks.py` for dynamic examples, accessible captions, 64 px whole-row options and focus at five widths and actual zoom; it also runs `ocr_correction_checks.py` for recognition/output independence across all manual formats and ScoreSight DOM/grid/keyboard order, plus `ocr_style_checks.py` (all three styles, two precisions and stable font/alignment/transform geometry) and `ocr_time_format_checks.py` to `test_ocr.py` (native cases and, with `--ui`, touch/keyboard, preview/OBS, drafts and actual 200%/400% Chromium zoom). Run Go `TestOCRRecognitionIndependentOfOutput` and `TestOCRTimeFormat*` for strict precision/boundary/persistence/API coverage. Newer Playwright headless shells ignore stored browser zoom preferences; the zoom helpers explicitly use full Chromium. Test setup waits for dialog-close handling and separates consecutive actions so a previous pending UI request cannot consume the next test action. For a manual rehearsal, `python scripts/simulate_ocr_clock.py` serves only a simulated Time field on loopback port 18199; pair it with a separate scoreboard config/listener as described in the [local build notes](docs/RELEASE_NOTES-ocr-format.md). It never connects to the real source.
+
+`test_floating_ui.py` verifies defaults, independent browser preferences, read-only saved/draft rendering, pointer/keyboard movement and resizing, close/reload, Save/Discard, five widths and actual 200%/400% zoom. `TestOCRTimeFormatStyles` and `TestOCRTimeFormatStyleValidation` cover style defaults, validation, exact values and persistence. Geometry tests wait for the visible canvas to acquire its animation-frame scale. Browser emulation does not establish a physical touchscreen pass.
 
 1. Inspect `git status` and preserve existing edits. Use a focused branch and describe the concrete issue or intended behavior.
 2. Keep timing/state in Go and rendering in the shared frontend renderer. Preserve public APIs, optional configuration fields and the behavior listed in AGENTS.md.

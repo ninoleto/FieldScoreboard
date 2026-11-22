@@ -18,6 +18,25 @@
   if(count>max){const more=document.createElement('span');more.textContent=`+${count-max}`;bar.append(more)}
   node.append(bar);
  }
+ // Stable, naturally sized columns keep seconds in place when prefixes and
+ // tenths appear/disappear. Reserved glyphs are CSS sizing, never fake spaces
+ // or accessible text. Manual clocks retain their original plain rendering.
+ function clockText(node,clock){
+  const key=JSON.stringify([clock.display,clock.display_style,clock.display_tenths]);
+  if(node.dataset.value===key)return;
+  node.dataset.value=key;
+  // Clean tenths use the original natural text box and element anchor.
+  if(!clock.display_style||(clock.display_style==='clean'&&clock.display_tenths)){node.textContent=clock.display;return}
+  const [whole,fraction]=clock.display.split('.'),colon=whole.lastIndexOf(':');
+  const minutes=colon<0?'':whole.slice(0,colon),seconds=whole.slice(colon+1);
+  const run=document.createElement('span');run.className='clock-run';
+  for(const [kind,value,reserve] of [['minutes',minutes,'0'.repeat(Math.max(2,minutes.length))],['colon',colon<0?'':':',':'],['seconds',seconds,'00'],['tenths',fraction===undefined?'':'.'+fraction,clock.display_tenths?'.0':'']]){
+   if(kind==='tenths'&&!clock.display_tenths)continue;
+   const part=document.createElement('span');part.className='clock-part clock-'+kind;part.dataset.reserve=reserve;
+   const text=document.createElement('span');text.className='clock-text';text.textContent=value;part.append(text);run.append(part);
+  }
+  node.replaceChildren(run);
+ }
  function paint(stage,s,layout,selected,skipDrag){
   if(!stage||!s||!layout)return;const e=initialize(stage);
   const bg=layout.background?'/background/'+encodeURIComponent(layout.background):'';
@@ -36,6 +55,7 @@
    node.style.zIndex=(selected===id?'2':'1');
    const isHome=id==='home_fouls';const isAway=id==='away_fouls';
    if((isHome&&layout.foul_style_home==='dots')||(isAway&&layout.foul_style_away==='dots')){dots(node,isHome?s.home_fouls:s.away_fouls,layout.foul_dots_max)}
+   else if(id==='main_clock'){clockText(node,s.main)}
    else{const value=fieldValue(id,s);if(node.dataset.value!==value){node.dataset.value=value;node.textContent=value}}
   }
  }
@@ -53,5 +73,5 @@
   const box=node.getBoundingClientRect();
   return {left:(box.left-canvas.left)/ratio,top:(box.top-canvas.top)/ratio,width:box.width/ratio,height:box.height/ratio};
  }
- window.FieldStage={fieldIDs,paint,scale,initialize,backgroundBox,backgroundPreset,elementBox};
+ window.FieldStage={fieldIDs,paint,scale,initialize,backgroundBox,backgroundPreset,elementBox,clockText};
 })();

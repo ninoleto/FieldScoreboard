@@ -24,6 +24,7 @@
  async function action(path,body){if(opBusy)return;opBusy=true;const epoch=++stateEpoch;try{const response=await api(path,'POST',body);if(epoch===stateEpoch){s=response;draw()}return true}catch(err){message(err.message);return false}finally{opBusy=false}}
  async function poll(){if(pollBusy||opBusy||layoutSaveBusy||ocrPending)return;pollBusy=true;const epoch=stateEpoch;try{const response=await api('/api/state');if(epoch!==stateEpoch)return;s=response;$('connected').classList.add('ok');$('connected').classList.remove('bad');$('connectionLabel').textContent='Connected';draw()}catch(err){if(epoch!==stateEpoch)return;$('connected').classList.add('bad');$('connected').classList.remove('ok');$('connectionLabel').textContent='Offline';if(!String(err).includes('token'))message(err.message)}finally{pollBusy=false}}
  const ocrControls=window.FieldOCRControls.create({api,begin:()=>{ocrPending++;return ++stateEpoch},finish:()=>{ocrPending--},apply:(state,epoch)=>{if(epoch===stateEpoch){s=state;draw()}},message});
+ const floatingPreview=window.FieldFloatingPreview.create({getView:()=>({tab,state:s,layout:tab==='editor'?layout:s?.layout})});
  function draw(){
   if(!s)return;
   stage.paint($('previewStage'),s,s.layout,null);stage.scale($('previewStage'));
@@ -39,7 +40,7 @@
   }
   for(const b of document.querySelectorAll('[data-adjust^="period:"]'))b.disabled=!!s.period_overtime;
   for(const [field,id] of [['home_score','homeScore'],['away_score','awayScore'],['home_fouls','homeFouls'],['away_fouls','awayFouls']])$(id).textContent=s[field];
-  $('mainDisplay').textContent=s.main.display;$('mainState').textContent=s.main.state.toUpperCase();$('shotDisplay').textContent=s.shot.display;$('shotState').textContent=s.shot.state.toUpperCase();
+  stage.clockText($('mainDisplay'),s.main);$('mainState').textContent=s.main.state.toUpperCase();$('shotDisplay').textContent=s.shot.display;$('shotState').textContent=s.shot.state.toUpperCase();
   for(const id of ['main','shot']){const isRunning=s[id].state==='running';for(const cmd of ['start','pause']){const b=document.querySelector(`[data-clock-action="${id}:${cmd}"]`);if(b)b.disabled=cmd==='start'?isRunning:!isRunning}}
   if(!mainDraftDirty){$('mainSeconds').value=s.main.duration_seconds%60;$('mainMinutes').value=Math.floor(s.main.duration_seconds/60);$('mainDirection').value=s.main.direction}
   if(!shotDraftDirty)$('shotSeconds').value=s.shot.duration_seconds;
@@ -58,6 +59,7 @@
   backgroundEditor?.sync();elementEditor?.sync();
   ocrControls.sync(s);syncDisplay();
   window.refreshTouchOptions?.();
+  floatingPreview.update();
  }
  const pageNames={control:'Live control',editor:'Layout editor',setup:'Output & API'};
  const compactNavigation=matchMedia('(max-width:720px)');
@@ -80,6 +82,7 @@
   $('currentPage').textContent=pageNames[target];
   document.querySelectorAll('.view').forEach(v=>v.classList.toggle('hidden',v.id!=='tab-'+target));
   closeNavigation(fromMenu);
+  floatingPreview.update();
   if(s)requestAnimationFrame(()=>{stage.scale($('previewStage'));stage.scale($('editorStage'))});
  }
  $('navigationToggle').addEventListener('click',()=>{
@@ -193,7 +196,7 @@
   stepElement(direction==='left'||direction==='right'?'elementX':'elementY',nudgeSize*(direction==='left'||direction==='up'?-1:1));
  }));
  // All controls below edit a temporary layout until the operator chooses Save.
- function mark(){layoutRevision++;dirty=true;$('unsavedBadge').classList.remove('hidden');if(s){stage.paint($('editorStage'),s,layout,editorSelection(),dragging?.id);stage.scale($('editorStage'));elementEditor?.sync()}}
+ function mark(){layoutRevision++;dirty=true;$('unsavedBadge').classList.remove('hidden');if(s){stage.paint($('editorStage'),s,layout,editorSelection(),dragging?.id);stage.scale($('editorStage'));elementEditor?.sync();floatingPreview.update()}}
  const fieldPills=$('fieldPills');for(const id of ['main_clock','shot_clock','period','home_name','home_score','home_fouls','away_name','away_score','away_fouls']){const b=document.createElement('button');b.textContent=names[id];b.dataset.field=id;b.addEventListener('click',()=>selectField(id));fieldPills.append(b)}
  function selectField(id){if(!layout||!layout.elements[id])return;backgroundEditor?.select(false);selected=id;updateInspector();if(s)stage.paint($('editorStage'),s,layout,editorSelection(),dragging?.id);elementEditor?.sync()}
  function updateInspector(){if(!layout)return;const el=layout.elements[selected];if(!el)return;
@@ -495,7 +498,7 @@
    button.focus({preventScroll:true});button.scrollIntoView({block:'nearest'});
   }
   function renderChoices(){
-   const signature=JSON.stringify([...source.options].map(o=>[o.textContent,o.value,o.selected,o.disabled,o.hidden,o.parentElement.disabled]));
+   const signature=JSON.stringify([...source.options].map(o=>[o.textContent,o.dataset.description,o.value,o.selected,o.disabled,o.hidden,o.parentElement.disabled]));
    if(signature===optionSignature)return;
    optionSignature=signature;
    const focused=list.contains(document.activeElement)?document.activeElement.dataset.index:null;
@@ -506,6 +509,7 @@
     const b=document.createElement('button');
     b.type='button';b.className='touch-choice-option';b.dataset.index=String(index);
     b.textContent=opt.textContent.trim();b.disabled=source.disabled||opt.disabled||!!opt.parentElement.disabled;
+    if(opt.dataset.description){const description=document.createElement('span');description.className='touch-choice-description';description.textContent=opt.dataset.description;b.append(description)}
     b.setAttribute('role','option');b.setAttribute('aria-selected',String(opt.selected));
     b.classList.toggle('selected',opt.selected);b.tabIndex=-1;
     b.addEventListener('click',event=>{
@@ -584,14 +588,16 @@
    const trigger=document.createElement('button');
    trigger.type='button';trigger.className='touch-select-trigger';trigger.id=select.id+'Choice';
    trigger.setAttribute('aria-haspopup','dialog');trigger.setAttribute('aria-controls',dialog.id);trigger.setAttribute('aria-expanded','false');
+   if(select.hasAttribute('aria-describedby'))trigger.setAttribute('aria-describedby',select.getAttribute('aria-describedby'));
    select.after(trigger);
    for(const el of labels)el.htmlFor=trigger.id;
    select.addEventListener('change',refresh);
-   new MutationObserver(refresh).observe(select,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['disabled','hidden','selected','label','value']});
+   new MutationObserver(refresh).observe(select,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['disabled','hidden','selected','label','value','data-description']});
    triggers.set(select,{trigger,label});
    trigger.addEventListener('click',event=>{
     event.preventDefault();event.stopPropagation();source=select;returnFocus=trigger;
     title.textContent=label;optionSignature='';search='';scrolled=false;pointerStart=null;
+    dialog.classList.toggle('ocr-format-choices',!!select.closest('.ocr-time-format'));
     $('fontWeightRow').hidden=select.id!=='elementFont';
     renderChoices();dialog.showModal();trigger.setAttribute('aria-expanded','true');
     focusOption(list.querySelector('[tabindex="0"]'));

@@ -143,6 +143,8 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
         page.locator('[data-clock-action="main:pause"]').click();wait(lambda s:s['main']['state']=='paused')
         page.locator('[data-clock-action="shot:reset"]').click();wait(lambda s:s['shot']['state']=='ready')
         page.locator('label.shot-auto-hide').click();wait(lambda s:s['shot_auto_hide'])
+        page.wait_for_function('()=>document.getElementById("shotAutoHide").checked')
+        page.wait_for_timeout(300) # Consume the UI response before the next keyboard toggle.
         page.locator('#shotAutoHide').focus()
         with page.expect_response(lambda r:r.url.endswith('/api/game') and r.request.method=='POST') as toggle:
             page.keyboard.press('Space')

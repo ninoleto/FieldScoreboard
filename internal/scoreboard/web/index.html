@@ -1,11 +1,11 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Field Scoreboard — Live Sports Graphics</title><link rel="icon" href="/favicon.ico"><link rel="stylesheet" href="/app.css"><script src="/render.js" defer></script><script src="/background.js" defer></script><script src="/elements.js" defer></script><script src="/ocr.js" defer></script><script src="/app.js" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><title>Field Scoreboard — Live Sports Graphics</title><link rel="icon" href="/favicon.ico"><link rel="stylesheet" href="/app.css"><script src="/render.js" defer></script><script src="/background.js" defer></script><script src="/elements.js" defer></script><script src="/ocr.js" defer></script><script src="/floating.js" defer></script><script src="/app.js" defer></script></head>
 <body>
 <div class="app-shell">
 <header class="site-header">
  <div class="brand"><span class="brand-logo">FS</span><div><h1>Field Scoreboard</h1><p>Live sports scoring · Custom graphics · OBS ready</p></div></div>
- <div class="header-actions"><span class="connection" id="connected"><span class="connection-dot"></span><span id="connectionLabel">Connecting</span></span><span class="version">v0.1.2</span><button id="openOverlay" class="subtle-button">Open clean overlay <span aria-hidden="true">↗</span></button></div>
+ <div class="header-actions"><span class="connection" id="connected"><span class="connection-dot"></span><span id="connectionLabel">Connecting</span></span><span class="version">v0.1.2-ocr-format.4</span><button id="openOverlay" class="subtle-button">Open clean overlay <span aria-hidden="true">↗</span></button></div>
 </header>
 <div id="banner" class="banner hidden" role="alert"></div>
 <div id="authGate" class="auth-gate hidden"><div class="auth-card"><h2>Connect to Field Scoreboard</h2><p>For access from another computer, enter the API token from the scoreboard host.</p><form id="authForm"><label>API token<input type="password" id="authToken" required autocomplete="off"></label><button class="primary">Connect</button></form></div></div>
@@ -16,6 +16,7 @@
 
 <section id="tab-control" class="view">
  <div class="section-head"><div><h2>Match control</h2><p>Update the scoreboard manually. Both clocks are independent and share one OBS overlay.</p></div><button id="resetMatch" class="outline danger">Reset scores &amp; fouls</button></div>
+ <label class="toggle-control floating-preference"><input id="floating-control-enabled" type="checkbox" role="switch"><span class="toggle-track" aria-hidden="true"></span><span>Floating preview when scrolling <small>Live control · saved in this browser</small></span></label>
  <div class="workspace" id="liveWorkspace">
   <div class="card stage-card" id="livePreview"><div class="card-heading"><h3>Live scoreboard preview</h3><span class="eyebrow">1920 × 1080 master canvas</span></div><div class="stage-frame"><div class="stage stage-preview" id="previewStage"></div><div class="canvas-tag">Preview only · OBS background remains transparent</div></div><div class="below-stage"><span class="green-dot"></span> In sync with local overlay <span class="thin-divider"></span> <button class="text-button" data-tab-link="editor">Edit positions <span aria-hidden="true">↗</span></button></div></div>
   <div class="card match-card"><div class="card-heading"><h3>Scores &amp; period</h3><span class="eyebrow">Instant updates</span></div>
@@ -56,22 +57,6 @@
   <p id="ocrWarning" role="status"></p>
   <p class="note" id="ocrFreshness">Video freshness cannot be verified: this ScoreSight endpoint supplies no detection timestamp. Repeated responses may contain a paused or cached image.</p>
   <div class="ocr-targets">
-   <section class="ocr-target" aria-labelledby="ocr-main-heading">
-    <div class="card-heading"><h4 id="ocr-main-heading">Match clock</h4><span class="badge-soft" id="ocr-main-mode">MANUAL</span></div>
-    <label class="ocr-source">Match clock source<select id="ocr-main-field"><option value="">Unconfigured — manual</option></select></label>
-    <p class="note">MM:SS · 0–10080 minutes</p>
-    <div class="ocr-readings"><div><span>Recognised value</span><output id="ocr-main-recognized">—</output></div><div><span>Last accepted value</span><output id="ocr-main-accepted">—</output></div></div>
-    <p id="ocr-main-reading" class="ocr-reading" role="status">Unconfigured — manual</p><p id="ocr-main-warning" class="ocr-field-warning" role="status"></p>
-    <div class="ocr-actions"><button type="button" id="ocr-main-follow" class="green-button" aria-pressed="false" aria-label="Follow OCR for match clock">Follow OCR</button><button type="button" id="ocr-main-manual" aria-label="Take manual control of match clock">Take manual control</button></div>
-   </section>
-   <section class="ocr-target" aria-labelledby="ocr-shot-heading">
-    <div class="card-heading"><h4 id="ocr-shot-heading">Shot clock</h4><span class="badge-soft" id="ocr-shot-mode">MANUAL</span></div>
-    <label class="ocr-source">Shot clock source<select id="ocr-shot-field"><option value="">Unconfigured — manual</option></select></label>
-    <p class="note">Whole seconds or MM:SS · 0–3600 seconds</p>
-    <div class="ocr-readings"><div><span>Recognised value</span><output id="ocr-shot-recognized">—</output></div><div><span>Last accepted value</span><output id="ocr-shot-accepted">—</output></div></div>
-    <p id="ocr-shot-reading" class="ocr-reading" role="status">Unconfigured — manual</p><p id="ocr-shot-warning" class="ocr-field-warning" role="status"></p>
-    <div class="ocr-actions"><button type="button" id="ocr-shot-follow" class="green-button" aria-pressed="false" aria-label="Follow OCR for shot clock">Follow OCR</button><button type="button" id="ocr-shot-manual" aria-label="Take manual control of shot clock">Take manual control</button></div>
-   </section>
    <section class="ocr-target" aria-labelledby="ocr-home_score-heading">
     <div class="card-heading"><h4 id="ocr-home_score-heading">Home score</h4><span class="badge-soft" id="ocr-home_score-mode">MANUAL</span></div>
     <label class="ocr-source">Home score source<select id="ocr-home_score-field"><option value="">Unconfigured — manual</option></select></label>
@@ -112,6 +97,30 @@
     <p id="ocr-period-reading" class="ocr-reading" role="status">Unconfigured — manual</p><p id="ocr-period-warning" class="ocr-field-warning" role="status"></p>
     <div class="ocr-actions"><button type="button" id="ocr-period-follow" class="green-button" aria-pressed="false" aria-label="Follow OCR for period">Follow OCR</button><button type="button" id="ocr-period-manual" aria-label="Take manual control of period">Take manual control</button></div>
    </section>
+   <section class="ocr-target" aria-labelledby="ocr-shot-heading">
+    <div class="card-heading"><h4 id="ocr-shot-heading">Shot clock</h4><span class="badge-soft" id="ocr-shot-mode">MANUAL</span></div>
+    <label class="ocr-source">Shot clock source<select id="ocr-shot-field"><option value="">Unconfigured — manual</option></select></label>
+    <p class="note">Whole seconds or MM:SS · 0–3600 seconds</p>
+    <div class="ocr-readings"><div><span>Recognised value</span><output id="ocr-shot-recognized">—</output></div><div><span>Last accepted value</span><output id="ocr-shot-accepted">—</output></div></div>
+    <p id="ocr-shot-reading" class="ocr-reading" role="status">Unconfigured — manual</p><p id="ocr-shot-warning" class="ocr-field-warning" role="status"></p>
+    <div class="ocr-actions"><button type="button" id="ocr-shot-follow" class="green-button" aria-pressed="false" aria-label="Follow OCR for shot clock">Follow OCR</button><button type="button" id="ocr-shot-manual" aria-label="Take manual control of shot clock">Take manual control</button></div>
+   </section>
+   <section class="ocr-target ocr-match-target" aria-labelledby="ocr-main-heading">
+    <div class="card-heading"><h4 id="ocr-main-heading">Match clock</h4><span class="badge-soft" id="ocr-main-mode">MANUAL</span></div>
+    <label class="ocr-source">Match clock source<select id="ocr-main-field"><option value="">Unconfigured — manual</option></select></label>
+    <p class="note">MM:SS · 0–10080 minutes, or final-minute SS / SS.t · 0–59.9 seconds. Recognition is independent of the display settings.</p>
+    <div class="ocr-time-format">
+     <label class="toggle-control" for="ocr-main-auto-format"><input id="ocr-main-auto-format" type="checkbox" role="switch" aria-describedby="ocr-main-switch-help"><span class="toggle-track" aria-hidden="true"></span><span>Automatically change clock format in the final minute</span></label>
+     <p class="note" id="ocr-main-switch-help">When enabled, the clock switches from minutes and seconds to seconds only below 1 minute.</p>
+     <label class="ocr-source">Time precision<select id="ocr-main-final-format" aria-describedby="ocr-main-format-help"><option value="SS">Whole seconds — 30</option><option value="SS.t">Tenths of a second — 30.6</option></select></label>
+     <label class="ocr-source">Final-minute appearance<select id="ocr-main-final-style" aria-describedby="ocr-main-format-help"><option value="visible" data-description="Standard minutes-and-seconds appearance.">Show zeros — 00:30</option><option value="invisible" data-description="Hide the leading zeros while keeping the seconds in their original position.">Hide zeros — :30</option><option value="clean" data-description="Display seconds without the minutes prefix.">Seconds only — 30</option></select></label>
+     <p class="note" id="ocr-main-format-off">Automatic switching is off. The clock uses your normal Match Clock output format.</p>
+     <p class="note" id="ocr-main-format-help">ScoreSight controls the clock while Follow OCR is active. These settings only change how time is displayed. Your normal Match Clock format returns when you take manual control.</p>
+    </div>
+    <div class="ocr-readings"><div><span>Recognised value</span><output id="ocr-main-recognized">—</output></div><div><span>Last accepted value</span><output id="ocr-main-accepted">—</output></div></div>
+    <p id="ocr-main-reading" class="ocr-reading" role="status">Unconfigured — manual</p><p id="ocr-main-warning" class="ocr-field-warning" role="status"></p>
+    <div class="ocr-actions"><button type="button" id="ocr-main-follow" class="green-button" aria-pressed="false" aria-label="Follow OCR for match clock">Follow OCR</button><button type="button" id="ocr-main-manual" aria-label="Take manual control of match clock">Take manual control</button></div>
+   </section>
   </div>
   <p class="note">Take manual control to keep the displayed value. Clocks stay paused until you press Start / Resume. Both clocks actions require both clocks to be manual. OCR does not report running status; a manual shot reset stays Ready while the match clock follows OCR.</p>
  </section>
@@ -119,6 +128,7 @@
 
 <section id="tab-editor" class="view hidden">
  <div class="section-head"><div><h2>Layout editor</h2><p>Position your background and nine live elements on a 1920 × 1080 canvas.</p></div><div class="header-actions"><span id="unsavedBadge" class="unsaved hidden">Unsaved changes</span><button id="resetPositions" class="outline">Restore Defaults</button><button id="discardLayout" class="outline">Discard</button><button id="saveLayout" class="primary">Save Layout</button></div></div>
+ <label class="toggle-control floating-preference"><input id="floating-editor-enabled" type="checkbox" role="switch"><span class="toggle-track" aria-hidden="true"></span><span>Floating preview when scrolling <small>Layout editor · includes unsaved changes · saved in this browser</small></span></label>
  <div class="editor-workspace">
   <div class="card stage-card editor-card"><div class="editor-preview-heading"><h3>Move &amp; resize elements</h3><p id="editorSelectionLabel" class="element-selection-label">Editing: Match clock</p><span class="eyebrow">Exact 1920 × 1080 coordinates</span></div>
    <div class="editor-preview-toolbar" role="group" aria-label="Editing modes"><button id="freeTransform" type="button" aria-pressed="false" aria-controls="editorFrame" aria-describedby="editorModeHelp" disabled>Free transform</button><button id="selectBackground" type="button" aria-pressed="false" aria-controls="editorFrame" aria-describedby="editorModeHelp">Edit background — move &amp; resize</button></div>

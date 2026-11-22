@@ -32,9 +32,10 @@ var ocrLabels = map[string]string{"main": "Match clock", "shot": "Shot clock", "
 // Only settings persist. An explicit empty mapping disables auto-suggestion.
 // Field retains compatibility with test.9 settings and mirrors the main mapping.
 type OCRSettings struct {
-	Address  string            `json:"address"`
-	Field    string            `json:"field,omitempty"`
-	Mappings map[string]string `json:"mappings,omitempty"`
+	Address        string                 `json:"address"`
+	Field          string                 `json:"field,omitempty"`
+	Mappings       map[string]string      `json:"mappings,omitempty"`
+	MainTimeFormat *OCRTimeFormatSettings `json:"main_time_format,omitempty"`
 }
 type OCRTargetSnapshot struct {
 	Field            string `json:"field"`
@@ -58,13 +59,14 @@ type OCRSnapshot struct {
 	Freshness         string                       `json:"freshness"`
 	ConnectionWarning string                       `json:"connection_warning"`
 	Targets           map[string]OCRTargetSnapshot `json:"targets"`
+	MainTimeFormat    OCRTimeFormatSettings        `json:"main_time_format"`
 }
 type ocrTargetRuntime struct {
 	OCRTargetSnapshot
 	configured bool
 	revision   uint64
 	valid      bool
-	value      int
+	value      ocrValue
 	changedAt  time.Time
 }
 type ocrRuntime struct {
@@ -171,6 +173,10 @@ func cloneOCRSettings(s *OCRSettings) *OCRSettings {
 		return nil
 	}
 	c := *s
+	if s.MainTimeFormat != nil {
+		format := *s.MainTimeFormat
+		c.MainTimeFormat = &format
+	}
 	c.Mappings = map[string]string{}
 	for k, v := range s.Mappings {
 		c.Mappings[k] = v
@@ -216,6 +222,7 @@ func (a *App) ocrGuardLocked(target string) error {
 }
 func (a *App) ocrSnapshotLocked(now time.Time) OCRSnapshot {
 	v := OCRSnapshot{Address: a.ocr.Address, Fields: append([]string{}, a.ocr.Fields...), Connection: a.ocr.Connection, Monitoring: a.ocr.active, ResponseAgeMS: -1, Freshness: "unavailable", ConnectionWarning: a.ocr.warning, Targets: map[string]OCRTargetSnapshot{}}
+	v.MainTimeFormat = a.ocrTimeFormatLocked()
 	if !a.ocr.responseAt.IsZero() {
 		v.ResponseAgeMS = now.Sub(a.ocr.responseAt).Milliseconds()
 	}
@@ -246,6 +253,9 @@ func (a *App) wakeOCRLocked() {
 }
 func (a *App) ocrSettingsLocked() *OCRSettings {
 	s := &OCRSettings{Address: a.ocr.Address, Field: a.ocr.targets["main"].Field, Mappings: map[string]string{}}
+	if a.cfg.OCR != nil {
+		s.MainTimeFormat = cloneOCRSettings(a.cfg.OCR).MainTimeFormat
+	}
 	for k, t := range a.ocr.targets {
 		if t.configured {
 			s.Mappings[k] = t.Field
@@ -279,9 +289,9 @@ func (a *App) ConnectOCR(address string) error {
 			return nil
 		}
 	}
-	settings := &OCRSettings{Address: address}
-	if address == a.ocr.Address {
-		settings = a.ocrSettingsLocked()
+	settings := a.ocrSettingsLocked()
+	if address != a.ocr.Address {
+		settings.Address, settings.Field, settings.Mappings = address, "", map[string]string{}
 	}
 	if err := a.saveOCRSettingsLocked(settings); err != nil {
 		return err
@@ -397,13 +407,13 @@ func (a *App) takeOCRManualLocked(target string, t *ocrTargetRuntime) {
 	}
 	t.revision++
 }
-func (a *App) applyOCRValueLocked(target string, value int) error {
+func (a *App) applyOCRValueLocked(target string, value ocrValue) error {
 	if target == "main" || target == "shot" {
 		clock := &a.main
 		if target == "shot" {
 			clock = &a.shot
 		}
-		clock.Base = time.Duration(value) * time.Second
+		clock.Base = value.clock
 		clock.State, clock.Anchor = "paused", time.Time{}
 		return nil
 	}
@@ -423,10 +433,10 @@ func (a *App) applyOCRValueLocked(target string, value int) error {
 	default:
 		return errors.New("unknown OCR target")
 	}
-	if *destination == value {
+	if *destination == value.number {
 		return nil
 	}
-	*destination = value
+	*destination = value.number
 	// Persist changed game values only, never identical polling observations.
 	if err := saveConfig(a.path, c); err != nil {
 		return err
@@ -517,7 +527,7 @@ func (a *App) acceptOCR(ticket ocrTicket, results []scoreSightResult, fetchErr e
 			t.Warning = "Reading rejected or empty. Keeping the displayed value."
 			continue
 		}
-		value, err := parseOCRValue(target, r.Text)
+		value, err := parseOCRObservation(target, r.Text)
 		if err != nil {
 			t.Reading = "malformed"
 			t.Warning = err.Error() + ". Keeping the displayed value."
@@ -535,7 +545,7 @@ func (a *App) acceptOCR(ticket ocrTicket, results []scoreSightResult, fetchErr e
 		}
 		t.value, t.valid, t.LastAccepted, t.Reading = value, true, r.Text, "accepted"
 		if target == "period" {
-			t.LastAccepted = strconv.Itoa(value)
+			t.LastAccepted = strconv.Itoa(value.number)
 		}
 	}
 }

@@ -21,6 +21,8 @@ type ClockState struct {
 	Direction        string  `json:"direction"`
 	DurationSeconds  int     `json:"duration_seconds"`
 	RemainingSeconds float64 `json:"remaining_seconds"`
+	DisplayStyle     string  `json:"display_style,omitempty"`
+	DisplayTenths    bool    `json:"display_tenths,omitempty"`
 }
 type Snapshot struct {
 	Version         string      `json:"version"`
@@ -107,6 +109,12 @@ func (a *App) State() Snapshot {
 		}
 	}
 	main := cs(&a.main, a.cfg.Layout.MainClockFormat)
+	main.Display = a.mainClockDisplayLocked(now)
+	if format := a.ocrTimeFormatLocked(); a.ocrFollowingLocked("main") && format.Enabled {
+		// Only effective rendering hints cross the sanitized overlay boundary.
+		main.DisplayStyle = format.FinalMinuteStyle
+		main.DisplayTenths = format.FinalMinuteFormat == "SS.t"
+	}
 	if a.ocrFollowingLocked("main") {
 		main.State = "ocr"
 	}

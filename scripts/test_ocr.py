@@ -124,6 +124,12 @@ with tempfile.TemporaryDirectory() as folder:
                     assert request('/api/state')[target]==held
                     print('LIVE '+target+': follow/mixed manual match/takeover',json.dumps({'samples':20,'first':values[0],'last':values[-1],'distinct_values':len({json.dumps(v,sort_keys=True) for v in values})}),flush=True)
             if not args.live_address:
+                from ocr_time_format_checks import verify_time_format
+                verify_time_format(request,wait_for,fixture)
+                from ocr_correction_checks import verify_recognition_formats
+                verify_recognition_formats(request,wait_for,fixture)
+                from ocr_style_checks import verify_styles
+                style_cases=verify_styles(request,wait_for,fixture)
                 from ocr_mapping_checks import verify_mappings
                 verify_mappings(request,wait_for,fixture,entered)
                 from ocr_seven_checks import verify_seven
@@ -137,12 +143,17 @@ with tempfile.TemporaryDirectory() as folder:
                 verify_ocr_ui(base,request,wait_for,fixture,root,address)
                 from ui_period_checks import verify_period_ui
                 verify_period_ui(base,request,wait_for,fixture,root)
+                from ocr_time_format_checks import verify_time_format_ui
+                verify_time_format_ui(base,request,wait_for,fixture,root)
+                from ocr_style_checks import verify_style_ui
+                verify_style_ui(base,request,wait_for,fixture,root,style_cases)
             saved=request('/api/state')['ocr']['targets']
             game=request('/api/state')
             proc.terminate();proc.wait(timeout=5);proc=start()
             restarted=request('/api/state')
             assert restarted['ocr']['connection']=='disconnected' and not restarted['ocr']['following'] and restarted['main']['state']=='ready'
             assert restarted['ocr']['address']==address
+            assert restarted['ocr']['main_time_format']==game['ocr']['main_time_format']
             for target,view in restarted['ocr']['targets'].items():
                 assert not view['following'] and view['field']==saved[target]['field']
             assert restarted['shot']['state']=='ready'

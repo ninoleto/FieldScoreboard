@@ -6,17 +6,24 @@ window.FieldOCRControls={create({api,begin,finish,apply,message}){
  const busy=new Set(),signatures={};
  $('ocrAddress').addEventListener('input',()=>{addressDirty=true;if(current)sync(current)});
  async function command(path,body){
-  const key=body.target||'connection';
+  const key=path==='time-format'?'time-format':body.target||'connection';
   if(key==='connection'&&(connectionAction||(path==='connect'&&['connecting','connected'].includes(current?.ocr?.connection))))return;
   if(key!=='connection'&&connectionAction)return;
   if(busy.has(key)&&path!=='manual')return;
+  // A pending preference temporarily disables its controls. Restore keyboard
+  // focus after saving if disabling them left focus on the document body.
+  const formatFocus=key==='time-format'?($('touchChoiceDialog').open?document.querySelector('.ocr-time-format [aria-expanded="true"]'):document.activeElement===$('ocr-main-auto-format')?$('ocr-main-auto-format'):null):null;
   const epoch=begin();busy.add(key);if(key==='connection')connectionAction=path;if(current)sync(current);
   try{const state=await api('/api/ocr/'+path,'POST',body);if(path==='connect')addressDirty=false;apply(state,epoch)}
   catch(err){message(err.message)}
-  finally{finish();busy.delete(key);if(key==='connection')connectionAction=null;if(current)sync(current)}
+  finally{finish();busy.delete(key);if(key==='connection')connectionAction=null;if(current)sync(current);if(formatFocus&&document.activeElement===document.body&&!formatFocus.disabled)formatFocus.focus({preventScroll:true})}
  }
  $('ocrConnect').addEventListener('click',()=>command('connect',{address:$('ocrAddress').value.trim()}));
  $('ocrDisconnect').addEventListener('click',()=>command('disconnect',{}));
+ const saveTimeFormat=()=>command('time-format',{enabled:$('ocr-main-auto-format').checked,final_minute_format:$('ocr-main-final-format').value,final_minute_style:$('ocr-main-final-style').value});
+ $('ocr-main-auto-format').addEventListener('change',saveTimeFormat);
+ $('ocr-main-final-format').addEventListener('change',saveTimeFormat);
+ $('ocr-main-final-style').addEventListener('change',saveTimeFormat);
  for(const target of targets){
   el(target,'field').addEventListener('change',()=>command('field',{target,field:el(target,'field').value}));
   el(target,'follow').addEventListener('click',()=>command('follow',{target}));
@@ -28,6 +35,15 @@ window.FieldOCRControls={create({api,begin,finish,apply,message}){
   const follows=target=>!!views[target]?.following;
   if(!addressDirty&&document.activeElement!==$('ocrAddress'))$('ocrAddress').value=o.address;
   const pending=!!connectionAction,monitoring=!!o.monitoring;
+  const timeFormat=o.main_time_format||{enabled:false,final_minute_format:'SS'},formatBusy=busy.has('time-format');
+  if(!formatBusy){$('ocr-main-auto-format').checked=!!timeFormat.enabled;$('ocr-main-final-format').value=timeFormat.final_minute_format||'SS';$('ocr-main-final-style').value=timeFormat.final_minute_style||'clean'}
+  const example=$('ocr-main-final-format').value==='SS.t'?'30.6':'30';
+  const appearanceLabels={visible:'Show zeros — 00:'+example,invisible:'Hide zeros — :'+example,clean:'Seconds only — '+example};
+  for(const option of $('ocr-main-final-style').options){if(option.textContent!==appearanceLabels[option.value])option.textContent=appearanceLabels[option.value]}
+  $('ocr-main-format-off').hidden=$('ocr-main-auto-format').checked;
+  $('ocr-main-auto-format').disabled=pending||formatBusy;
+  $('ocr-main-final-format').disabled=pending||formatBusy||!$('ocr-main-auto-format').checked;
+  $('ocr-main-final-style').disabled=pending||formatBusy||!$('ocr-main-auto-format').checked;
   const connectionState=connectionAction==='connect'?'connecting':o.connection||'disconnected';
   const connect=$('ocrConnect'),disconnect=$('ocrDisconnect');
   connect.disabled=pending||['connecting','connected'].includes(o.connection);

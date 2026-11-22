@@ -61,7 +61,8 @@ def verify_touch_interface(browser, offline_page, root):
                 page.keyboard.press('Escape')
                 assert page.locator('#touchChoiceDialog').is_hidden()
                 assert trigger.evaluate('e=>e===document.activeElement')
-                assert trigger.get_attribute('aria-expanded')=='false'
+                # The native dialog close event runs after Escape hides it.
+                page.wait_for_function('(id)=>document.getElementById(id).getAttribute("aria-expanded")==="false"',arg=id+'Choice')
             no_overflow(page)
             if width<=720:
                 assert page.locator('#currentPage').is_visible()
@@ -205,7 +206,9 @@ def verify_browser_zoom(browser,offline_page,root):
         with tempfile.TemporaryDirectory(dir=root/'.test') as folder:
             profile=Path(folder)/'Default';profile.mkdir()
             (profile/'Preferences').write_text(json.dumps({'partition':{'default_zoom_level':{'x':math.log(zoom)/math.log(1.2)}}}),encoding='utf-8')
-            executable=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium') or shutil.which('google-chrome')
+            # Persistent zoom preferences require full Chromium, not the
+            # separately shipped headless shell in newer Playwright versions.
+            executable=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium') or shutil.which('google-chrome') or browser.browser_type.executable_path
             context=browser.browser_type.launch_persistent_context(folder,headless=True,executable_path=executable,viewport={'width':1920,'height':1080})
             page=context.pages[0]
             page.route('http://scoreboard.test/**',lambda r:r.fulfill(body='<html></html>',content_type='text/html'))

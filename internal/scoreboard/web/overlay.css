@@ -9,3 +9,9 @@ html,body,#overlayFrame{width:100%;height:100%;margin:0;overflow:hidden;backgrou
 
 /* Clip graphics to the logical canvas, including letterboxed output. */
 .stage{overflow:hidden}
+
+/* Automatic clock columns are shared with the OBS stylesheet. */
+.clock-run{display:inline-flex;font-variant-numeric:tabular-nums}
+.clock-part{display:inline-grid;text-align:right}
+.clock-part::before{content:attr(data-reserve);visibility:hidden;grid-area:1/1}
+.clock-text{grid-area:1/1}

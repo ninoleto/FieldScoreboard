@@ -1,5 +1,7 @@
 # Field Scoreboard
 
+**Local development build: v0.1.2-ocr-format.4.** Polishes the ScoreSight Match clock wording and selection examples. Retains the accepted decimal recognition, clean SS.t alignment and ScoreSight card order from .3. Retains upright typography and floating Live/editor draft previews. This build is for local review only; the public release remains v0.1.2. See [local test instructions and changes](docs/RELEASE_NOTES-ocr-format.md) and [development verification](docs/VERIFICATION-ocr-format.md).
+
 **A sports scoreboard and graphics editor for OBS Studio, for Windows and Linux.** Control scores, fouls, periods and two independent clocks from a large, touch-friendly web panel. Use manual controls or optionally follow recognised values from ScoreSight. Arrange artwork and scoreboard fields in one transparent 1920×1080 Browser Source.
 
 **Field Scoreboard v0.1.2 — stable release for Windows and Linux.** Free and open source under the [MIT licence](LICENSE). Windows x64 and Linux x64 packages run without a cloud account or additional application runtime. ScoreSight is needed only for optional OCR. [v0.1.2 changes](docs/RELEASE_NOTES-v0.1.2.md) · [Verification and limitations](docs/VERIFICATION-v0.1.2.md).

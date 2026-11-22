@@ -16,6 +16,9 @@ def number(page,id,value):page.locator('#'+id).fill(str(value));page.locator('#'
 def saved(page):
     page.locator('#saveLayout').click();page.wait_for_function("()=>document.getElementById('unsavedBadge').classList.contains('hidden')&&!document.getElementById('saveLayout').disabled")
 def box(page,id,stage='editorStage'):
+    # Tab activation schedules stage scaling on the next animation frame.
+    # Measure only after the visible canvas has acquired its scale.
+    page.wait_for_function('''([stage,id])=>FieldStage.elementBox(document.getElementById(stage),id)!==null''',arg=[stage,id])
     return page.evaluate('''([stage,id])=>FieldStage.elementBox(document.getElementById(stage),id)''',[stage,id])
 def same(a,b,tolerance=.15):
     for k in ('left','top','width','height'):assert abs(a[k]-b[k])<tolerance,(k,a,b)

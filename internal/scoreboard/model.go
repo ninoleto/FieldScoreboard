@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const Version = "0.1.2"
+const Version = "0.1.2-ocr-format.4"
 const CanvasW = 1920
 const CanvasH = 1080
 
@@ -238,6 +238,11 @@ func ValidateLayout(l Layout) error {
 }
 func ValidateConfig(c Config) error {
 	if c.OCR != nil {
+		if c.OCR.MainTimeFormat != nil {
+			if err := c.OCR.MainTimeFormat.validate(); err != nil {
+				return err
+			}
+		}
 		if _, err := normalizeScoreSight(c.OCR.Address); err != nil {
 			return err
 		}

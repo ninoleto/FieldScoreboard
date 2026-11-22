@@ -264,6 +264,21 @@ func (s *Server) api(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch {
+	case p == "ocr/time-format" && r.Method == "POST":
+		var v struct {
+			Enabled           *bool  `json:"enabled"`
+			FinalMinuteFormat string `json:"final_minute_format"`
+			FinalMinuteStyle  string `json:"final_minute_style"`
+		}
+		if err := decode(r, &v); err != nil {
+			apiErr(w, 400, err.Error())
+			return
+		}
+		if v.Enabled == nil {
+			apiErr(w, 400, "enabled must be a boolean")
+			return
+		}
+		s.done(w, s.App.SetOCRTimeFormat(OCRTimeFormatSettings{Enabled: *v.Enabled, FinalMinuteFormat: v.FinalMinuteFormat, FinalMinuteStyle: v.FinalMinuteStyle}))
 	case p == "ocr/connect" && r.Method == "POST":
 		var v struct {
 			Address string `json:"address"`

@@ -2,10 +2,12 @@
 import os,shutil
 from playwright.sync_api import sync_playwright
 from ui_touch_checks import choose,navigate,no_overflow
+from ocr_correction_checks import verify_card_order
 TARGETS=('main','shot','home_score','away_score','home_fouls','away_fouls','period')
 
 def verify_ocr_ui(base,request,wait_for,fixture,root,address):
     def order(page):
+        verify_card_order(page)
         assert page.evaluate('''()=>{
           const o=document.querySelector('.ocr-card'),live=document.getElementById('tab-control');
           return live.lastElementChild===o && ['.workspace','.both-clocks','.clock-grid'].every(s=>{
