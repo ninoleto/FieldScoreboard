@@ -126,7 +126,7 @@ def verify_style_ui(base,request,wait_for,fixture,root,cases):
             request('/api/ocr/time-format',{'enabled':True,'final_minute_format':c['mode'],'final_minute_style':c['style']})
             text={'visible':'00:','invisible':':','clean':''}[c['style']]+('59.9' if c['mode']=='SS.t' else '59')
             expect(overlay.locator('[data-id="main_clock"]')).to_have_text(text)
-            overlay.screenshot(path=str(root/'.test/ocr-format4'/f'clock-{c["style"]}-{c["mode"]}.png'))
+            overlay.screenshot(path=str(root/'.test/release-v0.1.3'/f'clock-{c["style"]}-{c["mode"]}.png'))
         navigate(page,'control');page.reload()
         assert page.locator('#ocr-main-final-style').input_value()=='clean'
         request('/api/ocr/manual',{'target':'main'})

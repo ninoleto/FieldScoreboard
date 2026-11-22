@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-const Version = "0.1.2-ocr-format.4"
+const Version = "0.1.3"
 const CanvasW = 1920
 const CanvasH = 1080
 

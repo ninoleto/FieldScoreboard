@@ -66,7 +66,7 @@ def verify_time_format_ui(base, request, wait_for, fixture, root):
     request('/api/ocr/manual', {'target': 'main'})
     fixture.update(text='01:00', state='Success', status=200, missing=False, delay=0)
     wait_for(lambda s: s['ocr']['can_follow'])
-    output = root / '.test' / 'ocr-format4'
+    output = root / '.test' / 'release-v0.1.3'
     output.mkdir(exist_ok=True)
     with sync_playwright() as p:
         browser = p.chromium.launch(executable_path=os.environ.get('CHROMIUM_PATH') or shutil.which('chromium') or shutil.which('google-chrome'))

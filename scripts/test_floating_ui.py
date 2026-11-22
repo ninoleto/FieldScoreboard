@@ -8,7 +8,7 @@ from playwright.sync_api import sync_playwright, expect
 from ui_touch_checks import choose, navigate, no_overflow
 
 root=Path(__file__).resolve().parents[1]
-output=root/'.test/ocr-format4';output.mkdir(exist_ok=True)
+output=root/'.test/release-v0.1.3';output.mkdir(exist_ok=True)
 binary=Path(sys.argv[1]).resolve()
 with socket.socket() as sock:sock.bind(('127.0.0.1',0));port=sock.getsockname()[1]
 base=f'http://127.0.0.1:{port}'

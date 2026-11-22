@@ -1,5 +1,16 @@
 # Field Scoreboard handoff
 
+## Current release — v0.1.3 (2026-11-22)
+
+The owner authorized completing verification, committing, normal main integration, push, a new v0.1.3 tag and stable Latest publication. This supersedes the historical development-only restrictions below. Preserve every earlier release/tag and all local archives; the historical v0.1.2 deletion authorization does not apply.
+
+The verified .4 development work is preserved at `efab87e472e7effd73128cdd3d1ebfd980814fd0`. The final application changes are v0.1.3 version labels and blue Custom sizing; accepted OCR, timing, sizing and renderer functionality are frozen. Existing v0.1.3 Windows GUI/console and Linux binaries were built successfully before interruption and are retained. Final automated verification passes under `.test/release-v0.1.3/`: all ten browser/overlay suites, focused blue Custom sizing, OCR/manual controls, Linux Go/vet/race with GCC, Windows GUI/console and Linux extracted HTTP/transport, documentation/package integrity and security scans. The interrupted checks were resumed and completed; pre-interruption build/test/vet/JS evidence is reused only for unchanged bytes. See [release notes](docs/RELEASE_NOTES-v0.1.3.md) and [verification](docs/VERIFICATION-v0.1.3.md).
+
+Final delivery: `dist/v0.1.3/` contains the Windows, Linux and Source v0.1.3 ZIPs plus `SHA256SUMS.txt`; tested executable bytes are preserved. The release is designated stable Latest at [v0.1.3](https://github.com/ninoleto/FieldScoreboard/releases/tag/v0.1.3). The release commit is identified by the `v0.1.3` tag and included source tree. Publication results (remote main/tag identity, unauthenticated asset hashes and retained v0.1.2 metadata) are recorded after upload in `.test/release-v0.1.3/publication-receipt.json`; that receipt distinguishes successful publication from preparation. All .1/.2/.3/.4 archives and older GitHub releases/tags/history are preserved. Development stops after publication; further changes require a new owner request. Physical touchscreen/tray, real camera freshness, production OBS and separate-machine LAN/Companion remain operator checks.
+
+The sections below are historical records and do not override this release authorization.
+
+
 ## Current local development — v0.1.2-ocr-format.4 (2026-11-22)
 
 The operator accepted .3 functionality and requested only ScoreSight Match clock UI wording/usability before a future v0.1.3. Public v0.1.2 is unchanged. Continue on `feature/ocr-automatic-time-format`, base `2f85c9a`. No commit, push, tag, publication, release deletion or cleanup is authorized.

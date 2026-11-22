@@ -1,10 +1,10 @@
 # ScoreSight connection: current scope and future work
 
-## Setup in v0.1.2
+## Setup in v0.1.3
 
-The operator accepted .3 functionality. Local .4 changes only the labels, descriptions and dynamic examples in the shared selection dialog. **Time precision** maps Whole seconds to `SS` and Tenths of a second to `SS.t`; **Final-minute appearance** maps Show zeros / Hide zeros / Seconds only to `visible` / `invisible` / `clean`. Examples use 30 or 30.6 to reflect the selected precision. The engine, persistence schema, output rendering and alignment rules below remain unchanged.
+**Automatically change clock format in the final minute** is an optional, default-off setting inside ScoreSight → Match clock. **Time precision** maps Whole seconds to `SS` and Tenths of a second to `SS.t`; **Final-minute appearance** maps Show zeros / Hide zeros / Seconds only to `visible` / `invisible` / `clean`. Examples use 30 or 30.6 to reflect the selected precision. The shared selection dialog retains large options, keyboard access and focus restoration.
 
-Local development build **v0.1.2-ocr-format.4** adds **Automatically change clock format in the final minute** inside ScoreSight → Match clock. It is optional and defaults off; the public v0.1.2 release does not include it. Regardless of the display toggle, match OCR accepts `SS` or `SS.t` (one or two second digits, optionally exactly one dot-separated tenth, 0–59.9). Existing colon-formatted match readings keep their original validation and seven-day limit. Shot and all other field parsers are unchanged.
+Regardless of the display toggle, match OCR accepts `SS` or `SS.t` (one or two second digits, optionally exactly one dot-separated tenth, 0–59.9). Existing colon-formatted match readings keep their original validation and seven-day limit. Shot and all other field parsers are unchanged.
 
 While the match clock follows OCR and the override is enabled, automatic display uses `MM:SS` at or above 60 seconds and **Time precision** (`SS`, default, or `SS.t`) below 60. `01:00 → 59.9 → 55.4 → 20:00` displays as `01:00 → 59 → 55 → 20:00` in SS mode, or `01:00 → 59.9 → 55.4 → 20:00` in SS.t mode. SS drops the fraction for display without changing the exact source duration. The configured direction does not change this authoritative display policy. No elapsed time is inferred between polls. Invalid readings and connection loss retain the exact last accepted value and active display override while ownership is retained.
 
@@ -19,7 +19,7 @@ Field Scoreboard supports seven independent targets: **match clock, shot clock, 
 
    | Target | Suggested source | Accepted values |
    |---|---|---|
-   | Match clock | Time | M:SS / MM:SS (one to five minute digits, exactly two second digits, at most 10080:00) |
+   | Match clock | Time | M:SS / MM:SS (one to five minute digits, exactly two second digits, at most 10080:00), or final-minute SS / SS.t (0–59.9) |
    | Shot clock | Shot Clock | Whole seconds or M:SS / MM:SS, 0–3600 seconds |
    | Home score | Home Score | Whole numbers, 0–999 (one to three digits) |
    | Away score | Away Score | Whole numbers, 0–999 (one to three digits) |
@@ -72,7 +72,7 @@ All routes below require JSON content type and the existing bearer header for re
 | `/api/ocr/field` | `{"target":"main","field":"Time"}` (empty field unconfigures) |
 | `/api/ocr/follow` | `{"target":"main"}` |
 | `/api/ocr/manual` | `{"target":"main"}` |
-| `/api/ocr/time-format` | `{"enabled":true,"final_minute_format":"SS.t"}`; local test build, match clock only; format is SS or SS.t |
+| `/api/ocr/time-format` | `{"enabled":true,"final_minute_format":"SS.t"}`; match clock only; format is SS or SS.t |
 
 Targets are `main`, `shot`, `home_score`, `away_score`, `home_fouls`, `away_fouls`, `period`; omitted target means `main` for test.9 API compatibility. `/api/state` exposes per-target status under `ocr.targets` and retains legacy main aliases. The read-only OBS feed exposes effective clock/score values, without OCR address, source list or warnings.
 
@@ -82,6 +82,6 @@ Disconnect invalidates the entire connection generation, so late successes/failu
 
 ## Evidence and future work
 
-See [v0.1.2 release verification](VERIFICATION-v0.1.2.md), [v0.1.1 review verification](VERIFICATION-v0.1.1.md), [v0.1.0 release verification](VERIFICATION-v0.1.0.md) and the historical [test.17 shot/name verification](VERIFICATION-v0.1.0-test.17.md), [test.16 preset/font verification](VERIFICATION-v0.1.0-test.16.md), [test.15 clock verification](VERIFICATION-v0.1.0-test.15.md), [test.14 interface verification](VERIFICATION-v0.1.0-test.14.md), [test.13 period verification](VERIFICATION-v0.1.0-test.13.md), historical [test.12 regression checks](VERIFICATION-v0.1.0-test.12.md), [test.11 verification](VERIFICATION-v0.1.0-test.11.md) and historical [test.9 verification](VERIFICATION-v0.1.0-test.9.md). On 2026-11-06 the operator reported match-clock OCR working in the home setup with test.9. **This is not venue validation.** Automated source pauses/resets/failures are simulations; Field Timer and the live source were not controlled by those tests.
+See [v0.1.3 release verification](VERIFICATION-v0.1.3.md), historical [v0.1.2 release verification](VERIFICATION-v0.1.2.md), [v0.1.1 review verification](VERIFICATION-v0.1.1.md), [v0.1.0 release verification](VERIFICATION-v0.1.0.md) and the historical [test.17 shot/name verification](VERIFICATION-v0.1.0-test.17.md), [test.16 preset/font verification](VERIFICATION-v0.1.0-test.16.md), [test.15 clock verification](VERIFICATION-v0.1.0-test.15.md), [test.14 interface verification](VERIFICATION-v0.1.0-test.14.md), [test.13 period verification](VERIFICATION-v0.1.0-test.13.md), historical [test.12 regression checks](VERIFICATION-v0.1.0-test.12.md), [test.11 verification](VERIFICATION-v0.1.0-test.11.md) and historical [test.9 verification](VERIFICATION-v0.1.0-test.9.md). On 2026-11-06 the operator reported match-clock OCR working in the home setup with test.9. **This is not venue validation.** Automated source pauses/resets/failures are simulations; Field Timer and the live source were not controlled by those tests.
 
 Future work: verified detection freshness if supplied upstream, confidence/stability policy, multiple sources and venue evaluation. Automatic sport rules and guaranteed OCR accuracy are not included.

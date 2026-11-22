@@ -49,6 +49,9 @@ def sizing_state(page,mode):
         assert selected.count()==0
         assert page.locator('#backgroundSizingStatus').is_visible()
         assert page.locator('#backgroundSizingStatus').inner_text()=='Custom sizing'
+        # Custom is a normal blue status, not an amber warning. It uses the
+        # application's existing primary colors without changing sizing state.
+        assert page.locator('#backgroundSizingStatus').evaluate('e=>{const s=getComputedStyle(e);return [s.backgroundColor,s.borderTopColor,s.color]}')==['rgb(33, 108, 186)','rgb(52, 132, 208)','rgb(255, 255, 255)']
         page.wait_for_function('()=>[...document.querySelectorAll("[data-background-preset]")].every(e=>getComputedStyle(e).borderTopColor==="rgb(97, 123, 150)"&&getComputedStyle(e.querySelector("strong"),"::before").visibility==="hidden")')
     else:
         assert selected.count()==1 and selected.get_attribute('data-background-preset')==mode
@@ -59,6 +62,20 @@ def sizing_state(page,mode):
 def select_sizing(page,mode):
     page.locator(f'[data-background-preset="{mode}"]').click()
     sizing_state(page,mode)
+
+
+def capture_custom_status(page,label):
+    import base64
+    output=root/'.test/release-v0.1.3';output.mkdir(exist_ok=True)
+    sizing_state(page,'custom')
+    page.locator('#backgroundSizingStatus').scroll_into_view_if_needed()
+    # Use a viewport capture so real browser zoom does not produce blank images.
+    session=page.context.new_cdp_session(page)
+    data=base64.b64decode(session.send('Page.captureScreenshot',{'format':'png','captureBeyondViewport':False})['data'])
+    with Image.open(BytesIO(data)) as picture:
+        assert any(low!=high for low,high in picture.convert('RGB').getextrema())
+    (output/f'custom-sizing-{label}.png').write_bytes(data);session.detach()
+    print('Custom sizing blue status, dark presets and unchanged geometry:',label,'PASS',flush=True)
 
 def saved_rendering(page,overlay,layout):
     transform=layout['background_transform']
@@ -259,6 +276,7 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
         for width in [375,500,1000,1440,1920]:
             page.set_viewport_size({'width':width,'height':1080});page.wait_for_timeout(100)
             no_overflow(page);close_rect(rect(page),final);sizing_state(page,'custom')
+            capture_custom_status(page,str(width))
             assert request('/api/state')['layout']['background_transform']==final
             for id in ['backgroundWidth','backgroundHeight','backgroundX','backgroundY']:assert page.locator('#'+id).bounding_box()['height']==64
             buttons=page.locator('[data-background-preset]')
@@ -318,6 +336,7 @@ with tempfile.TemporaryDirectory() as folder,sync_playwright() as p:
                 for mode in ('fill','original','stretch','fit'):
                     select_sizing(zoom_page,mode);no_overflow(zoom_page)
                 zoom_page.once('dialog',lambda d:d.accept());zoom_page.locator('#discardLayout').click();sizing_state(zoom_page,'custom')
+                capture_custom_status(zoom_page,f'zoom-{zoom*100}')
                 zoom_page.evaluate('scrollTo(0,0)');zoom_page.screenshot(path=str(root/f'.test/background-zoom-{zoom*100}.png'),full_page=True)
                 assert request('/api/state')['layout']['background_transform']==final
                 context.close()

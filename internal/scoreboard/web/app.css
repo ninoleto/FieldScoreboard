@@ -203,7 +203,7 @@ button.touch-select-trigger{display:flex;width:100%;justify-content:space-betwee
 .background-sizing-presets [aria-pressed="true"]{background:#176553;border-color:#aaffec;box-shadow:0 0 0 2px #54ddc444}
 .background-sizing-presets [aria-pressed="true"] strong::before{visibility:visible}
 .background-sizing-presets [aria-pressed="true"] span{color:#e0fff4}
-.background-sizing-status{margin:16px 0 0;padding:12px 16px;border:2px solid #d9b75e;border-radius:9px;background:#493916;color:#ffe1a0;font-size:20px;font-weight:700}
+.background-sizing-status{margin:16px 0 0;padding:12px 16px;border:2px solid #3484d0;border-radius:9px;background:#216cba;color:#fff;font-size:20px;font-weight:700}
 @media(max-width:650px){.background-sizing-presets{grid-template-columns:1fr}}
 .background-lock{font-size:18px;margin:18px 0}
 .background-lock small{font-size:14px}

@@ -1,16 +1,14 @@
 # Field Scoreboard
 
-**Local development build: v0.1.2-ocr-format.4.** Polishes the ScoreSight Match clock wording and selection examples. Retains the accepted decimal recognition, clean SS.t alignment and ScoreSight card order from .3. Retains upright typography and floating Live/editor draft previews. This build is for local review only; the public release remains v0.1.2. See [local test instructions and changes](docs/RELEASE_NOTES-ocr-format.md) and [development verification](docs/VERIFICATION-ocr-format.md).
-
 **A sports scoreboard and graphics editor for OBS Studio, for Windows and Linux.** Control scores, fouls, periods and two independent clocks from a large, touch-friendly web panel. Use manual controls or optionally follow recognised values from ScoreSight. Arrange artwork and scoreboard fields in one transparent 1920×1080 Browser Source.
 
-**Field Scoreboard v0.1.2 — stable release for Windows and Linux.** Free and open source under the [MIT licence](LICENSE). Windows x64 and Linux x64 packages run without a cloud account or additional application runtime. ScoreSight is needed only for optional OCR. [v0.1.2 changes](docs/RELEASE_NOTES-v0.1.2.md) · [Verification and limitations](docs/VERIFICATION-v0.1.2.md).
+**Field Scoreboard v0.1.3 — stable release for Windows and Linux.** Free and open source under the [MIT licence](LICENSE). Windows x64 and Linux x64 packages run without a cloud account or additional application runtime. ScoreSight is needed only for optional OCR. [v0.1.3 changes](docs/RELEASE_NOTES-v0.1.3.md) · [Verification and limitations](docs/VERIFICATION-v0.1.3.md).
 
 ## Download and start
 
-**[Download for Windows](https://github.com/ninoleto/FieldScoreboard/releases/download/v0.1.2/FieldScoreboard-Windows-v0.1.2.zip)** · **[Download for Linux](https://github.com/ninoleto/FieldScoreboard/releases/download/v0.1.2/FieldScoreboard-Linux-v0.1.2.zip)**
+**[Download for Windows](https://github.com/ninoleto/FieldScoreboard/releases/download/v0.1.3/FieldScoreboard-Windows-v0.1.3.zip)** · **[Download for Linux](https://github.com/ninoleto/FieldScoreboard/releases/download/v0.1.3/FieldScoreboard-Linux-v0.1.3.zip)**
 
-[Source ZIP](https://github.com/ninoleto/FieldScoreboard/releases/download/v0.1.2/FieldScoreboard-Source-v0.1.2.zip) · [SHA-256 checksums](https://github.com/ninoleto/FieldScoreboard/releases/download/v0.1.2/SHA256SUMS.txt) · [GitHub release](https://github.com/ninoleto/FieldScoreboard/releases/tag/v0.1.2)
+[Source ZIP](https://github.com/ninoleto/FieldScoreboard/releases/download/v0.1.3/FieldScoreboard-Source-v0.1.3.zip) · [SHA-256 checksums](https://github.com/ninoleto/FieldScoreboard/releases/download/v0.1.3/SHA256SUMS.txt) · [GitHub release](https://github.com/ninoleto/FieldScoreboard/releases/tag/v0.1.3)
 
 Extract the whole ZIP into a writable folder before running it.
 
@@ -40,6 +38,7 @@ Open the control panel at **http://127.0.0.1:8790** on the host computer. Existi
 - Large team-name fields, scores, fouls and periods; exact numeric entry and consistent ± controls. **Period format** selects Number, Ordinal or Quarter. **OT** overrides the label while retaining the numeric period and chosen format.
 - Independent match and shot clocks, **Start both / Pause both**, and immediate **−5s / −1s / +1s / +5s** corrections. Match **5/8/10/12/20-minute presets** fill pending setup; press **Set match clock** to apply. Shot **14s/24s/30s presets apply immediately**. Shot Reset/Set/presets resume only if the match clock is internally running, without changing it. Output formats apply immediately, independently of Set.
 - Optional **shot auto-hide** hides output when shot time is at least remaining match time or the match has expired. Timing is unaffected. **Foul indicators** applies numeric/dot styles and dot maximum immediately. Restart retains saved game/configuration but returns clocks to Ready.
+- Optional floating previews in Live control and Layout editor keep the saved output or unsaved layout draft visible while scrolling.
 - Touch-friendly dialogs at every screen size, large buttons, polling-safe drafts and narrow-screen **Menu** navigation.
 - Nine editable scoreboard elements: position, font, **Bold inside Font**, color, alignment and visibility. Normal mode supports selection/dragging; optional **Free transform** reveals resize handles. Background sizing uses four always-visible buttons: Fit entire image, Fill canvas, Original size and Stretch to canvas. The selected mode is highlighted; manual changes show Custom sizing. Aspect lock and precise controls remain below. Use **Edit background — move & resize** to manipulate the image. The top actions are **Restore Defaults / Discard / Save Layout**; Restore Defaults keeps its element-position/size reset scope. A separate full-width **Layout profiles** card sits below the aligned editor columns; presets preserve live game values.
 - Fine-position arrows use **5/10/20 px**, default **5 px**. X/Y ± remains **1 px**. Saved geometry uses logical 1920×1080 coordinates.
@@ -50,10 +49,12 @@ Open the control panel at **http://127.0.0.1:8790** on the host computer. Existi
 
 **ScoreSight OCR** is at the bottom of Live control. Connect to discover fields, then follow match time, shot time, home/away scores, home/away fouls and period independently. Missing fields remain manual. Period OCR accepts 3, 3rd or Q3 independently of display format. Rejected/missing readings hold the last value; **Take manual control** retains that value and pauses a clock. Separate **Connect** and **Disconnect** buttons use a shared status badge. Disconnect stops polling, returns all followed fields to manual with values retained, and leaves followed clocks paused. Reconnect requires explicit Follow OCR again. Restart starts manual and disconnected. **Successful HTTP readings do not prove fresh camera video.** See [OCR setup, validation and freshness limitations](docs/OCR_PLAN.md).
 
+For match time, optionally enable **Automatically change clock format in the final minute**. Choose whole seconds or tenths, then show zeros, hide zeros or show seconds only. The examples update with your choice. This changes appearance only: following OCR still works when the switch is off, using your normal Match Clock output format. Taking manual control restores that normal format.
+
 In **Output & API**, enable LAN access, save and restart. Use the selected real adapter address on other machines. Remote control needs an **Authorization: Bearer** header; copy or rotate the token locally. The read-only LAN OBS URL needs no token on permitted private clients. HTTP is unencrypted; use a trusted network. The **Companion HTTP Builder** generates requests for Generic HTTP Requests, without a dedicated Companion module or live feedback. See [LAN/authentication](docs/USER_GUIDE.md#lan-and-authentication) and [Companion setup](docs/COMPANION_SETUP.md).
 
 ## Verification and development
 
-On **2026-11-07**, the owner accepted the v0.1.2 interface and reported that the **Linux test PASSED**. This is an owner-reported result, not an additional physical touchscreen, venue OCR or OBS test. Automated Windows/Linux, clock/OCR, layout, responsive and package checks are documented separately in [release verification](docs/VERIFICATION-v0.1.2.md). Historical test.8 Linux/OBS Flatpak and test.9 home match-clock OCR reports retain their original scope.
+Windows/Linux, clock/OCR, layout, responsive/zoom and package checks are documented in [v0.1.3 verification](docs/VERIFICATION-v0.1.3.md). The operator accepted the preceding OCR development functionality. Automated touch emulation is separate from physical touchscreen, tray, real camera, venue OBS and separate-machine LAN/Companion checks. Earlier acceptance and test records remain in the repository.
 
 Automatic sport rules, NDI, direct OBS control and verified video freshness are **not implemented**. Contributions start with [CONTRIBUTING.md](CONTRIBUTING.md), [architecture](docs/ARCHITECTURE.md), [AGENTS.md](AGENTS.md) and [handoff](handoff.md). Field Scoreboard is separate from Field Timer and is not affiliated with OBS Studio, ScoreSight or Bitfocus Companion.
